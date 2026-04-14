@@ -27,8 +27,7 @@ export const downloadApartmentLoginQrPdf = async ({ tenantName, rows, filenameSt
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 14;
-  const qrMm = 22;
-  const textMaxW = pageW - margin * 2 - qrMm - 6;
+  const qrGap = 6;
   let y = margin;
 
   const qrHelpText =
@@ -51,26 +50,34 @@ export const downloadApartmentLoginQrPdf = async ({ tenantName, rows, filenameSt
   const padBottom = 6;
 
   for (const row of rows) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    const idChunks = doc.splitTextToSize(`Lägenhets-ID: ${row.apartment_id}`, textMaxW);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    const houseLine = row.house ? `Hus / trappuppgång: ${row.house}` : "Hus / trappuppgång: —";
-    const houseChunks = row.house ? doc.splitTextToSize(houseLine, textMaxW) : ["Hus / trappuppgång: —"];
-    doc.setFontSize(8);
-    const helpChunks = doc.splitTextToSize(qrHelpText, textMaxW);
-    doc.setFontSize(11);
+    let qrMm = 22;
+    let idChunks = [];
+    let houseChunks = [];
+    let helpChunks = [];
+    let textContentH = 0;
 
-    const houseBlockH = row.house ? houseChunks.length * lineH10 : lineH10;
-    const leftColH =
-      padTop +
-      idChunks.length * lineH11 +
-      houseBlockH +
-      gapAfterHouse +
-      helpChunks.length * lineH8 +
-      padBottom;
-    const rowHCalc = Math.max(leftColH, qrMm + padTop) + 4;
+    for (let i = 0; i < 3; i += 1) {
+      const textMaxW = Math.max(80, pageW - margin * 2 - qrMm - qrGap);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      idChunks = doc.splitTextToSize(`Lägenhets-ID: ${row.apartment_id}`, textMaxW);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const houseLine = row.house ? `Hus / trappuppgång: ${row.house}` : "Hus / trappuppgång: —";
+      houseChunks = row.house ? doc.splitTextToSize(houseLine, textMaxW) : ["Hus / trappuppgång: —"];
+      doc.setFontSize(8);
+      helpChunks = doc.splitTextToSize(qrHelpText, textMaxW);
+      doc.setFontSize(11);
+
+      const houseBlockH = row.house ? houseChunks.length * lineH10 : lineH10;
+      textContentH = idChunks.length * lineH11 + houseBlockH + gapAfterHouse + helpChunks.length * lineH8;
+
+      const maxQrMm = pageW - margin * 2 - qrGap - 80;
+      qrMm = Math.max(18, Math.min(maxQrMm, textContentH));
+    }
+
+    const leftColH = padTop + textContentH + padBottom;
+    const rowHCalc = leftColH + 4;
 
     if (y + rowHCalc > pageH - margin) {
       doc.addPage();
@@ -109,7 +116,7 @@ export const downloadApartmentLoginQrPdf = async ({ tenantName, rows, filenameSt
       margin: 1,
       errorCorrectionLevel: "M",
     });
-    doc.addImage(dataUrl, "PNG", pageW - margin - qrMm, rowTop, qrMm, qrMm);
+    doc.addImage(dataUrl, "PNG", pageW - margin - qrMm, rowTop + padTop, qrMm, qrMm);
 
     y = rowTop + rowHCalc;
   }
