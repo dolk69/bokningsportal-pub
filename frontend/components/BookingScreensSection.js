@@ -330,11 +330,11 @@ export const BookingScreensSection = ({
                 text: "Koppla",
                 onClick: onOpenPair,
               }),
-              createElement("button", {
-                className: "secondary-button admin-btn-edit",
-                text: "Egen surfplatta",
-                onClick: onOpenOwnTabletModal,
-              }),
+              // createElement("button", {
+              //   className: "secondary-button admin-btn-edit",
+              //   text: "Egen surfplatta",
+              //   onClick: onOpenOwnTabletModal,
+              // }),
             ],
           }),
         ],
