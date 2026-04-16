@@ -18,9 +18,16 @@ import { UserList } from "./components/UserList.js";
 import { createBookingSummary } from "./utils/bookingSummary.js";
 import { buildCalendarDownloadPageUrl, buildCalendarQrImageUrl } from "./utils/calendarExport.js";
 import { buildConfirmModalState, renderConfirmModal } from "./utils/confirmModal.js";
-import { getSession, getBootstrap, rotatePersonalLoginLink, getDemoLinks } from "./api/session.js";
+import {
+  getSession,
+  getBootstrap,
+  rotatePersonalLoginLink,
+  getDemoLinks,
+  getKioskWebContext,
+  loginWithRfid,
+} from "./api/session.js";
 import { getPublicConfig } from "./api/config.js";
-import { setAccessToken } from "./api/client.js";
+import { setAccessToken, clearApiEtagCache } from "./api/client.js";
 import { registerBrf, verifyBrfSetup, completeBrfSetup } from "./api/brf.js";
 import { getCurrentBookings, createBooking, cancelBooking } from "./api/bookings.js";
 import { getBookableUsers } from "./api/users.js";
@@ -61,6 +68,7 @@ import {
 import { createStore } from "./hooks/useStore.js";
 import { createElement, clearElement } from "./hooks/dom.js";
 import { downloadApartmentLoginQrPdf } from "./utils/apartmentQrPdf.js";
+import { attachHidRfidListener, renderWebKioskIdle } from "./kiosk/webKioskIdle.js";
 
 const app = document.getElementById("app");
 const path = window.location.pathname;
@@ -72,7 +80,7 @@ const hashPath = rawHash
   : "";
 // Direktlänkar (/admin/, /user/, /setup/) måste vinna över hash — annars kan en gammal #‑route
 // från tidigare besök skicka fel token till API (t.ex. ogiltig setup‑signatur).
-const routePath = /^\/(admin|user|setup)\//.test(path) ? path : hashPath || path;
+const routePath = /^\/(admin|user|setup|kiosk)\//.test(path) ? path : hashPath || path;
 const buildQrImageUrl = (targetUrl, size = 320) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(targetUrl)}`;
 
@@ -117,12 +125,6 @@ const ensureTurnstileScript = (() => {
     return promise;
   };
 })();
-const openHelp = () => {
-  window.alert(
-    "Hjälp\n\nBoka genom att välja objekt, vecka/datum och tid.\nVid problem med behörighet eller bokning, kontakta styrelsen/förvaltaren."
-  );
-};
-
 const createLegalFooter = () =>
   createElement("footer", { className: "legal-footer" }, [
     createElement("span", {}, "Copyright (c) 2026 "),
@@ -287,7 +289,14 @@ const buildPermissionOptions = ({ users = [], accessGroups = [] } = {}) => {
   };
 };
 const logout = () => {
+  clearApiEtagCache();
   setAccessToken(null);
+  const kioskHome = sessionStorage.getItem("kioskHomePath");
+  if (kioskHome) {
+    sessionStorage.removeItem("kioskHomePath");
+    window.location.assign(kioskHome);
+    return;
+  }
   window.location.assign("/");
 };
 
@@ -479,6 +488,7 @@ if (routePath.startsWith("/admin/")) {
 
   const adminStore = createStore({
     adminUser: { name: "", association: "" },
+    adminTenantId: "",
     bookingObjects: [],
     bookingGroups: [],
     users: [],
@@ -538,6 +548,7 @@ if (routePath.startsWith("/admin/")) {
     pairScreenName: "",
     editScreenId: null,
     editScreenName: "",
+    ownTabletModalOpen: false,
     modalValidationError: "",
     modalValidationErrors: {},
     modalForm: {
@@ -779,6 +790,7 @@ if (routePath.startsWith("/admin/")) {
           name: session.user.apartment_id,
           association: session.tenant.name,
         },
+        adminTenantId: String(session.tenant?.id || "").trim(),
       });
       await loadAdminData();
     } catch (error) {
@@ -802,7 +814,8 @@ if (routePath.startsWith("/admin/")) {
       state.userRfidModalOpen ||
       state.userGroupModalOpen ||
       state.pairScreenModalOpen ||
-      state.editScreenModalOpen
+      state.editScreenModalOpen ||
+      state.ownTabletModalOpen
         ? document.activeElement
         : null;
     const modalFocusSnapshot =
@@ -1410,7 +1423,6 @@ if (routePath.startsWith("/admin/")) {
       Header({
         apartmentId: state.adminUser?.association || "—",
         tenantName: state.adminUser?.association,
-        onHelp: openHelp,
         onLogout: logout,
       }),
       AdminDashboard({
@@ -1454,6 +1466,8 @@ if (routePath.startsWith("/admin/")) {
         onUserQueryChange: (value) => adminStore.setState({ userQuery: value }),
         onCreateReport: () => adminStore.setState({ reportOpen: true, reportStep: 1 }),
         onOpenOrderScreens: () => adminStore.setState({ orderScreensModalOpen: true }),
+        onOpenOwnTabletModal: () => adminStore.setState({ ownTabletModalOpen: true }),
+        onCloseOwnTabletModal: () => adminStore.setState({ ownTabletModalOpen: false }),
         onOpenPairScreen: () =>
           adminStore.setState({ pairScreenModalOpen: true, pairScreenCode: "", pairScreenName: "" }),
         onCloseOrderScreens: () => adminStore.setState({ orderScreensModalOpen: false }),
@@ -1521,6 +1535,10 @@ if (routePath.startsWith("/admin/")) {
         },
         onEditScreenNameInput: (value) => adminStore.setState({ editScreenName: value }),
         orderScreensModalOpen: state.orderScreensModalOpen,
+        ownTabletModalOpen: state.ownTabletModalOpen,
+        kioskWebTabletUrl: state.adminTenantId
+          ? `${window.location.origin.replace(/\/$/, "")}/kiosk/${encodeURIComponent(state.adminTenantId)}`
+          : "",
         pairScreenModalOpen: state.pairScreenModalOpen,
         editScreenModalOpen: state.editScreenModalOpen,
         pairScreenCode: state.pairScreenCode,
@@ -1546,6 +1564,7 @@ if (routePath.startsWith("/admin/")) {
       modalFocusSnapshot &&
       !state.groupModalOpen &&
       !state.orderScreensModalOpen &&
+      !state.ownTabletModalOpen &&
       !state.userSelectorOpen &&
       !state.importOpen
     ) {
@@ -1602,6 +1621,11 @@ if (routePath.startsWith("/admin/")) {
       }
     }
 
+    if (state.ownTabletModalOpen) {
+      const closeBtn = app.querySelector('[data-focus-key="ownTabletClose"]');
+      closeBtn?.focus?.();
+    }
+
     if (state.importOpen && state.importFocus) {
       const input = app.querySelector(`[data-autofocus="${state.importFocus}"]`);
       if (input) {
@@ -1639,8 +1663,164 @@ if (routePath.startsWith("/admin/")) {
 
   adminStore.subscribe(renderAdmin);
   renderAdmin();
+} else if (routePath.startsWith("/kiosk/")) {
+  setAccessToken(null);
+  clearApiEtagCache();
+
+  const kioskTenantId = String(routePath.split("/")[2] || "").trim();
+  const kioskTenantIdOk = /^[a-zA-Z0-9_-]{1,128}$/.test(kioskTenantId);
+
+  document.body.classList.add("web-kiosk-idle-body");
+
+  const kioskStore = createStore({
+    tenantName: "",
+    loading: true,
+    error: "",
+    popupMessage: "",
+    popupIsError: false,
+    busy: false,
+  });
+
+  let detachHid = null;
+  let popupTimer = null;
+
+  const clearKioskPopupTimer = () => {
+    if (popupTimer) {
+      clearTimeout(popupTimer);
+      popupTimer = null;
+    }
+  };
+
+  const showKioskPopup = (message, isError) => {
+    clearKioskPopupTimer();
+    kioskStore.setState({ popupMessage: message, popupIsError: Boolean(isError) });
+    popupTimer = setTimeout(() => {
+      popupTimer = null;
+      kioskStore.setState({ popupMessage: "", popupIsError: false });
+    }, 5000);
+  };
+
+  const renderKioskIdle = () => {
+    const state = kioskStore.getState();
+    renderWebKioskIdle(app, {
+      tenantName: state.tenantName,
+      loading: state.loading,
+      error: state.error,
+      popupMessage: state.popupMessage,
+      popupIsError: state.popupIsError,
+    });
+  };
+
+  const tryKioskRfidLogin = async (uid) => {
+    const st = kioskStore.getState();
+    if (st.busy || st.loading || st.error || !kioskTenantIdOk) {
+      return;
+    }
+    kioskStore.setState({ busy: true });
+    try {
+      const res = await loginWithRfid(uid, kioskTenantId);
+      const bookingPath = String(res?.booking_url || "").trim();
+      if (!bookingPath) {
+        throw new Error("missing_booking_url");
+      }
+      sessionStorage.setItem("kioskHomePath", `/kiosk/${kioskTenantId}`);
+      const next = new URL(bookingPath, window.location.origin);
+      next.searchParams.set("kiosk", "1");
+      window.location.assign(next.pathname + next.search + (next.hash || ""));
+    } catch (error) {
+      const detail = error?.detail;
+      let msg = `Inloggning misslyckades (${error?.status ?? "okänt"}).`;
+      if (detail === "invalid_rfid") {
+        msg = "Taggen finns inte i systemet.";
+      } else if (detail === "rfid_not_allowed_for_screen") {
+        msg = "Taggen hör inte till denna förening.";
+      } else if (typeof error?.status !== "number") {
+        msg = "Kunde inte kontakta servern. Kontrollera internetanslutningen.";
+      } else if (Number(error?.status) >= 500) {
+        msg = "Serverfel. Försök igen om en stund.";
+      }
+      showKioskPopup(msg, true);
+    } finally {
+      kioskStore.setState({ busy: false });
+    }
+  };
+
+  kioskStore.subscribe(renderKioskIdle);
+  renderKioskIdle();
+
+  void (async () => {
+    if (!kioskTenantIdOk) {
+      kioskStore.setState({
+        loading: false,
+        error: "Ogiltig adress till kiosken.",
+        tenantName: "Bokningsskärm",
+      });
+      return;
+    }
+    try {
+      const data = await getKioskWebContext(kioskTenantId);
+      const name = String(data?.tenant?.name || "").trim();
+      kioskStore.setState({
+        loading: false,
+        error: "",
+        tenantName: name || "Bokningsskärm",
+      });
+      if (detachHid) {
+        detachHid();
+      }
+      detachHid = attachHidRfidListener(window, { onUid: (u) => void tryKioskRfidLogin(u) });
+    } catch {
+      kioskStore.setState({
+        loading: false,
+        error: "Kiosken är inte tillgänglig för denna förening.",
+        tenantName: "Bokningsskärm",
+      });
+    }
+  })();
 } else if (routePath.startsWith("/user/")) {
-const isKioskRoute = new URLSearchParams(window.location.search).get("kiosk") === "1";
+const isKioskRoute =
+  new URLSearchParams(window.location.search).get("kiosk") === "1" ||
+  Boolean(sessionStorage.getItem("kioskHomePath"));
+
+const KIOSK_INACTIVITY_MS = 3 * 60 * 1000;
+let kioskInactivityTimerId = null;
+let kioskActivityWired = false;
+
+const clearKioskInactivityTimer = () => {
+  if (kioskInactivityTimerId) {
+    clearTimeout(kioskInactivityTimerId);
+    kioskInactivityTimerId = null;
+  }
+};
+
+const scheduleKioskInactivityTimer = () => {
+  if (!isKioskRoute) {
+    return;
+  }
+  clearKioskInactivityTimer();
+  kioskInactivityTimerId = setTimeout(() => {
+    kioskInactivityTimerId = null;
+    logout();
+  }, KIOSK_INACTIVITY_MS);
+};
+
+const bumpKioskInactivity = () => {
+  if (!isKioskRoute) {
+    return;
+  }
+  scheduleKioskInactivityTimer();
+};
+
+const ensureKioskActivityListeners = () => {
+  if (!isKioskRoute || kioskActivityWired) {
+    return;
+  }
+  kioskActivityWired = true;
+  const bump = () => bumpKioskInactivity();
+  ["pointerdown", "keydown", "touchstart", "wheel", "click"].forEach((ev) => {
+    window.addEventListener(ev, bump, { passive: true, capture: true });
+  });
+};
 
 const today = new Date();
 const initialMonth = { year: today.getFullYear(), monthIndex: today.getMonth() };
@@ -2090,7 +2270,10 @@ const initUser = async () => {
         store.setState({ adminBookableUsers: [] });
       }
     }
+    ensureKioskActivityListeners();
+    bumpKioskInactivity();
   } catch (error) {
+    clearKioskInactivityTimer();
     store.setState((prev) => ({
       sessionError: "unauthorized",
       sessionLoading: false,
@@ -2246,7 +2429,6 @@ const loadWeekAvailability = async (service, weekStart) => {
         tenantName: state.sessionTenant?.name,
         showBack: Boolean(headerBack),
         onBack: headerBack || undefined,
-        onHelp: openHelp,
         onLogout: logout,
       })
     );
@@ -2313,7 +2495,13 @@ const loadWeekAvailability = async (service, weekStart) => {
         const nextPath = store.getState().qrRedirectPath;
         store.setState({ qrModalOpen: false });
         if (nextPath) {
-          window.location.assign(nextPath);
+          if (isKioskRoute) {
+            const u = new URL(nextPath, window.location.origin);
+            u.searchParams.set("kiosk", "1");
+            window.location.assign(u.pathname + u.search + (u.hash || ""));
+          } else {
+            window.location.assign(nextPath);
+          }
         }
       },
       isMobile,
@@ -2353,6 +2541,7 @@ const loadWeekAvailability = async (service, weekStart) => {
     const visibleDays = isMobile ? days.filter((day) => day.status !== "disabled") : days;
 
     screen = DateSelection({
+      serviceName: state.selectedService?.name,
       monthLabel: getMonthLabel(year, monthIndex),
       days: visibleDays,
       expectedDays: getExpectedMonthDays(year, monthIndex),
@@ -2457,6 +2646,7 @@ const loadWeekAvailability = async (service, weekStart) => {
     const expectedWeekSlots = getExpectedWeekSlots(state.weekCursor, state.selectedService?.slotDuration);
 
     screen = TimeSelection({
+      serviceName: state.selectedService?.name,
       weekLabel: getWeekLabel(state.weekCursor),
       weekSlots: visibleSlots,
       expectedWeekSlots: state.availabilityWeekLoadingPlaceholder || expectedWeekSlots,
@@ -2556,7 +2746,7 @@ const loadWeekAvailability = async (service, weekStart) => {
       state: state.uiStates.confirmation,
       maxBookingsReached: maxBookingsBlockedByClient,
       confirmed: state.confirmed,
-      isKioskMode: !isMobile,
+      isKioskMode: isKioskRoute || !isMobile,
       calendarQrImageUrl,
       calendarDownloadUrl: calendarPageUrl,
       onBack: () =>

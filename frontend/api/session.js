@@ -8,10 +8,19 @@ export const getSession = () => apiRequest("/session");
 export const getBootstrap = () => apiRequest("/bootstrap");
 
 
-export const loginWithRfid = (uid) =>
+export const loginWithRfid = (uid, tenantId) =>
   apiRequest("/rfid-login", {
     method: "POST",
-    body: JSON.stringify({ uid }),
+    body: JSON.stringify(
+      tenantId ? { uid, tenant_id: String(tenantId).trim() } : { uid }
+    ),
+    omitAuthorization: true,
+  });
+
+/** Publik kontext för webbkiosk (ingen inloggning). */
+export const getKioskWebContext = (tenantId) =>
+  apiRequest(`/kiosk/web-context?tenant_id=${encodeURIComponent(String(tenantId || "").trim())}`, {
+    omitAuthorization: true,
   });
 
 export const rotatePersonalLoginLink = () =>

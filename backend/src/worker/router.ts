@@ -1606,6 +1606,30 @@ const handlePublicConfig = async (_request: Request, env: Env) =>
     turnstile_site_key: String(env.TURNSTILE_SITE_KEY || "").trim(),
   });
 
+const isSafeTenantIdParam = (value: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(value);
+
+const handleKioskWebContext = async (request: Request, env: Env, url: URL) => {
+  const tenantId = String(url.searchParams.get("tenant_id") || "").trim();
+  if (!tenantId || !isSafeTenantIdParam(tenantId)) {
+    return errorResponse(400, "invalid_tenant_id");
+  }
+  const row = (await env.DB
+    .prepare(
+      `SELECT id, name, is_active, is_setup_complete
+       FROM tenants
+       WHERE id = ?
+       LIMIT 1`
+    )
+    .bind(tenantId)
+    .first()) as any;
+  if (!row || Number(row.is_active) !== 1 || Number(row.is_setup_complete) !== 1) {
+    return errorResponse(404, "kiosk_unavailable");
+  }
+  return json({
+    tenant: { id: String(row.id), name: String(row.name || "") },
+  });
+};
+
 const requireScreenAuth = async (request: Request, env: Env) => {
   const token = parseBearerToken(request.headers.get("authorization"));
   if (!token) {
@@ -3190,6 +3214,7 @@ export const router = async (request: Request, env: Env) => {
   if (request.method === "POST" && path === "/api/kiosk/access-token") return handleKioskAccessToken(request, env);
   if (request.method === "GET" && path === "/api/demo-links") return handleDemoLinks(request, env);
   if (request.method === "GET" && path === "/api/public-config") return handlePublicConfig(request, env);
+  if (request.method === "GET" && path === "/api/kiosk/web-context") return handleKioskWebContext(request, env, url);
 
   if (request.method === "GET" && path === "/api/bootstrap") return handleBootstrap(request, env);
   if (request.method === "GET" && path === "/api/session") return handleSession(request, env);

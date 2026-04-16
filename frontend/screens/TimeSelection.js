@@ -27,6 +27,7 @@ const legendItem = (dotClass, label) =>
   });
 
 export const TimeSelection = ({
+  serviceName,
   weekLabel,
   weekSlots,
   expectedWeekSlots,
@@ -43,28 +44,26 @@ export const TimeSelection = ({
   onConfirmCancel,
   isAdminView = false,
 }) => {
+  const headingText = serviceName?.trim()
+    ? `Lediga tider för ${serviceName.trim()}`
+    : "Lediga tider";
+  const heading = createElement("h1", { className: "booking-object-heading", text: headingText });
+
   const nav = createElement("div", {
-    className: "screen-header",
+    className: "calendar-header",
     children: [
-      createElement("div", {
-        children: [createElement("div", { className: "week-label", text: weekLabel })],
+      createElement("button", {
+        className: "secondary-button",
+        text: "‹ Föregående",
+        onClick: onPrev,
+        attrs: { disabled: !canPrev },
       }),
-      createElement("div", {
-        className: "header-actions",
-        children: [
-          createElement("button", {
-            className: "secondary-button week-nav-button",
-            text: "‹ Föregående vecka",
-            onClick: onPrev,
-            attrs: { disabled: !canPrev },
-          }),
-          createElement("button", {
-            className: "secondary-button week-nav-button",
-            text: "Nästa vecka ›",
-            onClick: onNext,
-            attrs: { disabled: !canNext },
-          }),
-        ],
+      createElement("div", { className: "calendar-title", text: weekLabel }),
+      createElement("button", {
+        className: "secondary-button",
+        text: "Nästa ›",
+        onClick: onNext,
+        attrs: { disabled: !canNext },
       }),
     ],
   });
@@ -132,7 +131,10 @@ export const TimeSelection = ({
     bodyContent = createElement("div", { className: "timeslot-grid", children: columns });
   }
 
-  const content = createElement("div", { className: "calendar card timeslot-card", children: [nav, bodyContent] });
+  const content = createElement("div", {
+    className: "calendar card timeslot-card",
+    children: [heading, nav, bodyContent],
+  });
 
   const cancelModal = cancelModalOpen
     ? CancelBookingModal({
@@ -143,7 +145,7 @@ export const TimeSelection = ({
     : null;
 
   return createElement("section", {
-    className: "screen",
+    className: "screen booking-screen",
     children: [content, legend(), cancelModal].filter(Boolean),
   });
 };

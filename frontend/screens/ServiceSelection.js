@@ -94,7 +94,7 @@ export const ServiceSelection = ({
         className: "qr-section",
         children: [
           createElement("div", { className: "section-title", text: "Boka med mobilen" }),
-          !isMobile
+          isKioskMode || !isMobile
             ? createElement("div", {
                 className: "qr-card card",
                 children: [

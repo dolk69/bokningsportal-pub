@@ -105,6 +105,18 @@ body {
   flex-wrap: wrap;
 }
 
+.admin-kiosk-url-block {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 28, 51, 0.06);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
 .admin-section-actions button,
 .admin-table td button {
   padding: 8px 12px;
@@ -723,6 +735,13 @@ body {
   gap: 20px;
   background: #101c33;
   border-color: #101c33;
+  min-width: 0;
+}
+
+.header-left,
+.header-center,
+.header-right {
+  min-width: 0;
 }
 
 .header-left,
@@ -749,6 +768,13 @@ body {
   font-weight: 600;
   font-size: 20px;
   color: #d7f7ff;
+  min-width: 0;
+}
+
+.header-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-back {
@@ -760,6 +786,8 @@ body {
   border: 1px solid #8fe8f5;
   box-shadow: none;
   border-radius: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .logo-badge {
@@ -789,11 +817,23 @@ body {
   border: 1px solid #e87722;
   color: #e87722;
   font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.header .ghost-button {
+  min-width: auto;
+  padding: 10px 14px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .ghost-button,
@@ -822,11 +862,6 @@ body {
 .secondary-button {
   background: var(--surface);
   border: 1px solid #101c33;
-}
-
-.week-nav-button {
-  border-color: #101c33;
-  color: #101c33;
 }
 
 .ghost-button[disabled],
@@ -905,6 +940,10 @@ body {
   gap: 16px;
 }
 
+.booking-screen {
+  gap: 6px;
+}
+
 .screen-header {
   display: flex;
   align-items: center;
@@ -914,6 +953,43 @@ body {
 .screen-title {
   font-size: 28px;
   font-weight: 700;
+}
+
+.booking-object-heading,
+.calendar-title {
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.booking-object-heading {
+  margin: 0;
+  text-align: center;
+  font-size: 24px;
+}
+
+.calendar-title {
+  font-size: 30px;
+}
+
+.calendar.card:has(> .booking-object-heading) {
+  padding-top: 14px;
+}
+
+.timeslot-card:has(> .booking-object-heading) {
+  gap: 10px;
+}
+
+.calendar.card > .booking-object-heading {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Samma vertikala lucka som tidspass (.timeslot-card grid gap 10px) mellan rubrik och föregående/nästa-rad */
+.calendar.card:has(> .booking-object-heading) .calendar-header {
+  margin-top: 10px;
 }
 
 .screen-subtitle {
@@ -1124,15 +1200,25 @@ body {
 }
 
 .calendar-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
-.calendar-title {
-  font-weight: 700;
-  font-size: 20px;
+.calendar-header > .secondary-button:first-of-type {
+  justify-self: start;
+}
+
+.calendar-header > .calendar-title {
+  justify-self: center;
+  text-align: center;
+  min-width: 0;
+}
+
+.calendar-header > .secondary-button:last-of-type {
+  justify-self: end;
 }
 
 .calendar-grid {
@@ -1706,11 +1792,6 @@ body {
     padding: 24px;
   }
 
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .service-grid,
   .calendar-grid,
   .calendar-weekdays,
@@ -1730,10 +1811,15 @@ body {
     padding: 20px 16px 24px;
   }
 
+  .header {
+    padding: 14px 16px;
+    gap: clamp(8px, 2vw, 16px);
+  }
+
   .header-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    width: auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .service-grid,
@@ -2146,4 +2232,100 @@ body {
   .landing-final-cta {
     padding: 36px 20px;
   }
+}
+
+/* Webbkiosk (extern surfplatta) — svart idle, samma budskap som Android-kiosken */
+body.web-kiosk-idle-body {
+  background: #000;
+  color: #fff;
+}
+
+.web-kiosk-idle-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: #fff;
+  padding: 24px;
+}
+
+.web-kiosk-idle-inner {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  min-height: 50vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-kiosk-idle-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.web-kiosk-idle-title {
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.web-kiosk-idle-for {
+  font-size: clamp(16px, 2.5vw, 22px);
+  color: #d1d5db;
+}
+
+.web-kiosk-idle-tenant {
+  font-size: clamp(22px, 4vw, 36px);
+  font-weight: 600;
+}
+
+.web-kiosk-idle-hint {
+  font-size: clamp(15px, 2.5vw, 22px);
+  font-weight: 400;
+  margin-top: 8px;
+}
+
+.web-kiosk-idle-status {
+  margin-top: 12px;
+  font-size: 16px;
+  color: #d1d5db;
+}
+
+.web-kiosk-idle-status-error {
+  color: #fecaca;
+}
+
+.web-kiosk-popup {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100% - 32px));
+  min-height: 120px;
+  padding: 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.35;
+  z-index: 2;
+}
+
+.web-kiosk-popup-error {
+  background: #7f1d1d;
+  border: 1px solid #fca5a5;
+  color: #fecaca;
+}
+
+.web-kiosk-popup-info {
+  background: #1e3a8a;
+  border: 1px solid #93c5fd;
+  color: #dbeafe;
 }

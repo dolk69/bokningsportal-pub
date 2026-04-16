@@ -27,6 +27,7 @@ const legendItem = (dotClass, label) =>
   });
 
 export const DateSelection = ({
+  serviceName,
   monthLabel,
   days,
   expectedDays,
@@ -43,12 +44,10 @@ export const DateSelection = ({
   onConfirmCancel,
   isAdminView = false,
 }) => {
-  const header = createElement("div", {
-    className: "screen-header",
-    children: [
-      createElement("div"),
-    ],
-  });
+  const headingText = serviceName?.trim()
+    ? `Lediga dagar för ${serviceName.trim()}`
+    : "Lediga dagar";
+  const heading = createElement("h1", { className: "booking-object-heading", text: headingText });
 
   const hasRenderableDays = days.some((day) => day.status !== "outside");
   const hasRenderableExpectedDays = (expectedDays || []).some((day) => day.status !== "outside");
@@ -66,6 +65,7 @@ export const DateSelection = ({
       canNext,
       isLoading: true,
       isAdminView,
+      bookingHeading: heading,
     });
   } else if (state === "loading" && !hasRenderableDays) {
     content = Calendar({
@@ -79,6 +79,7 @@ export const DateSelection = ({
       canNext,
       isLoading: true,
       isAdminView,
+      bookingHeading: heading,
     });
   } else if (state === "error" && !hasRenderableDays) {
     content = createElement("div", {
@@ -93,6 +94,7 @@ export const DateSelection = ({
           canPrev,
           canNext,
           isAdminView,
+          bookingHeading: heading,
         }),
         createElement("div", { className: "error-state", text: "Kunde inte ladda datum." }),
       ],
@@ -110,6 +112,7 @@ export const DateSelection = ({
           canPrev,
           canNext,
           isAdminView,
+          bookingHeading: heading,
         }),
         createElement("div", { className: "empty-state", text: "Inga lediga datum hittades." }),
       ],
@@ -125,6 +128,7 @@ export const DateSelection = ({
       canPrev,
       canNext,
       isAdminView,
+      bookingHeading: heading,
     });
   }
 
@@ -137,7 +141,7 @@ export const DateSelection = ({
     : null;
 
   return createElement("section", {
-    className: "screen",
-    children: [header, content, legend(), cancelModal].filter(Boolean),
+    className: "screen booking-screen",
+    children: [content, legend(), cancelModal].filter(Boolean),
   });
 };

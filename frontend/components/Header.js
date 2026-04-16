@@ -3,7 +3,7 @@
 
 import { createElement } from "../hooks/dom.js";
 
-export const Header = ({ apartmentId, tenantName, showBack = false, onBack, onHelp, onLogout }) => {
+export const Header = ({ apartmentId, tenantName, showBack = false, onBack, onLogout }) => {
   const title = showBack
     ? createElement("button", {
         className: "header-back",
@@ -24,10 +24,7 @@ export const Header = ({ apartmentId, tenantName, showBack = false, onBack, onHe
 
   const actions = createElement("div", {
     className: "header-actions",
-    children: [
-      createElement("button", { className: "ghost-button", text: "Hjälp", onClick: onHelp }),
-      createElement("button", { className: "ghost-button", text: "Logga ut", onClick: onLogout }),
-    ],
+    children: [createElement("button", { className: "ghost-button", text: "Logga ut", onClick: onLogout })],
   });
 
   return createElement("header", {

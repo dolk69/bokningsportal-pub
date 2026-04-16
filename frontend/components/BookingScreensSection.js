@@ -127,6 +127,48 @@ const createPairModal = ({ open, pairingCode, pairName, onCodeInput, onNameInput
   });
 };
 
+const createOwnTabletModal = ({ open, kioskWebTabletUrl, onClose }) => {
+  if (!open) {
+    return null;
+  }
+  return createElement("div", {
+    className: "modal-overlay",
+    children: [
+      createElement("div", {
+        className: "modal card booking-screen-modal",
+        children: [
+          createElement("div", { className: "modal-title", text: "Egen surfplatta" }),
+          createElement("p", {
+            className: "screen-subtitle",
+            text:
+              "Ni kan använda en egen surfplatta som bokningskiosk utan vår Android-app. Sätt webbläsarens startsida (eller helskärmsläge) till adressen nedan. Koppla en RFID-läsare som fungerar som tangentbord (HID) till plattan: när en boende blippar sin tagg (eller iLoq-nyckel) skickas UID till portalen och hen loggas in på samma sätt som vid en kopplad bokningsskärm.",
+          }),
+          kioskWebTabletUrl
+            ? createElement("div", {
+                className: "admin-kiosk-url-block",
+                text: kioskWebTabletUrl,
+              })
+            : createElement("p", {
+                className: "form-error",
+                text: "Kunde inte visa adress (ladda om sidan och försök igen).",
+              }),
+          createElement("div", {
+            className: "modal-footer modal-footer-align-end",
+            children: [
+              createElement("button", {
+                className: "primary-button",
+                text: "Stäng",
+                attrs: { "data-focus-key": "ownTabletClose" },
+                onClick: onClose,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+};
+
 const createEditModal = ({ open, editName, onNameInput, onCancel, onSave }) => {
   if (!open) {
     return null;
@@ -237,12 +279,16 @@ const createTable = ({ bookingScreens, onEdit, onDelete }) =>
 export const BookingScreensSection = ({
   bookingScreens,
   orderModalOpen,
+  ownTabletModalOpen,
+  kioskWebTabletUrl,
   pairModalOpen,
   editModalOpen,
   pairingCode,
   pairName,
   editName,
   onOpenOrder,
+  onOpenOwnTabletModal,
+  onCloseOwnTabletModal,
   onOpenPair,
   onCloseOrder,
   onConfirmOrder,
@@ -284,11 +330,21 @@ export const BookingScreensSection = ({
                 text: "Koppla",
                 onClick: onOpenPair,
               }),
+              createElement("button", {
+                className: "secondary-button admin-btn-edit",
+                text: "Egen surfplatta",
+                onClick: onOpenOwnTabletModal,
+              }),
             ],
           }),
         ],
       }),
       createTable({ bookingScreens, onEdit, onDelete }),
+      createOwnTabletModal({
+        open: ownTabletModalOpen,
+        kioskWebTabletUrl,
+        onClose: onCloseOwnTabletModal,
+      }),
       createOrderModal({
         open: orderModalOpen,
         onCancel: onCloseOrder,

@@ -46,7 +46,7 @@ export const apiRequest = async (path, options = {}) => {
   const base = getApiBase();
   const method = String(options.method || "GET").toUpperCase();
   const headers = new Headers(options.headers || {});
-  if (accessToken && !headers.has("Authorization")) {
+  if (accessToken && !headers.has("Authorization") && !options.omitAuthorization) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
   if (d1Bookmark && !headers.has("x-d1-bookmark")) {

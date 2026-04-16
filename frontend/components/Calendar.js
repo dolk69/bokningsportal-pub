@@ -16,6 +16,7 @@ export const Calendar = ({
   onSelect,
   isLoading = false,
   isAdminView = false,
+  bookingHeading = null,
 }) => {
   const header = createElement("div", {
     className: "calendar-header",
@@ -86,13 +87,16 @@ export const Calendar = ({
     });
   });
 
+  const children = [
+    ...(bookingHeading ? [bookingHeading] : []),
+    header,
+    createElement("div", { className: "calendar-weekdays", children: weekdayRow }),
+    createElement("div", { className: "calendar-grid", children: dayCards }),
+  ];
+
   return createElement("div", {
     className: "calendar card",
-    children: [
-      header,
-      createElement("div", { className: "calendar-weekdays", children: weekdayRow }),
-      createElement("div", { className: "calendar-grid", children: dayCards }),
-    ],
+    children,
   });
 };
 
