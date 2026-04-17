@@ -58,6 +58,8 @@ export const EditUserModal = ({
   form,
   groupOptions,
   selectorOpen,
+  selectorScrollTop = 0,
+  onSelectorScroll,
   addRfidOpen,
   onOpenAddRfid,
   onCloseAddRfid,
@@ -105,6 +107,7 @@ export const EditUserModal = ({
             createElement("div", { className: "modal-title", text: "Välj behörighetsgrupper" }),
             createElement("div", {
               className: "selector-list",
+              onScroll: (event) => onSelectorScroll?.(event.target.scrollTop),
               children: groupOptions.map((option) =>
                 createElement("label", {
                   className: "selector-option",
@@ -115,7 +118,10 @@ export const EditUserModal = ({
                         value: option,
                         checked: form.groups?.includes(option) ? "checked" : null,
                       },
-                      onChange: () => {
+                      onChange: (event) => {
+                        onSelectorScroll?.(
+                          event.target.closest(".selector-list")?.scrollTop || selectorScrollTop || 0
+                        );
                         const hasValue = form.groups?.includes(option);
                         const next = hasValue
                           ? form.groups.filter((item) => item !== option)

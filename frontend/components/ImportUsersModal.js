@@ -291,6 +291,7 @@ export const ImportUsersModal = ({
               createElement("div", { className: "modal-title", text: "Välj admin‑grupper" }),
               createElement("div", {
                 className: "selector-list",
+                onScroll: (event) => onChange("adminSelectorScrollTop", event.target.scrollTop),
                 children: (form.adminGroupOptions || []).map((group) =>
                   createElement("label", {
                     className: "selector-option",
@@ -323,7 +324,10 @@ export const ImportUsersModal = ({
                   createElement("button", {
                     className: "primary-button",
                     text: "Klar",
-                    onClick: () => onChange("adminSelectorOpen", false),
+                    onClick: () => {
+                      onChange("adminSelectorOpen", false);
+                      onChange("adminSelectorScrollTop", 0);
+                    },
                   }),
                 ],
               }),
@@ -474,7 +478,10 @@ export const ImportUsersModal = ({
               createElement("button", {
                 className: "secondary-button admin-btn-select",
                 text: "Välj",
-                onClick: () => onChange("adminSelectorOpen", true),
+                onClick: () => {
+                  onChange("adminSelectorOpen", true);
+                  onChange("adminSelectorScrollTop", 0);
+                },
               }),
             ],
           }),

@@ -532,6 +532,7 @@ if (routePath.startsWith("/admin/")) {
     editUserLoginQrError: "",
     editUserLoginQrRotating: false,
     userSelectorOpen: false,
+    userSelectorScrollTop: 0,
     userRfidModalOpen: false,
     userGroupModalOpen: false,
     addRfidDraft: "",
@@ -1198,6 +1199,8 @@ if (routePath.startsWith("/admin/")) {
       validationErrors: state.editUserValidationErrors || {},
       groupOptions: state.accessGroups || [],
       selectorOpen: state.userSelectorOpen,
+      selectorScrollTop: state.userSelectorScrollTop || 0,
+      onSelectorScroll: (value) => adminStore.setState({ userSelectorScrollTop: value }),
       addRfidOpen: state.userRfidModalOpen,
       onOpenAddRfid: () => adminStore.setState({ userRfidModalOpen: true }),
       onCloseAddRfid: () => adminStore.setState({ userRfidModalOpen: false, addRfidDraft: "" }),
@@ -1218,8 +1221,8 @@ if (routePath.startsWith("/admin/")) {
             addRfidDraft: "",
           };
         }),
-      onOpenSelector: () => adminStore.setState({ userSelectorOpen: true }),
-      onCloseSelector: () => adminStore.setState({ userSelectorOpen: false }),
+      onOpenSelector: () => adminStore.setState({ userSelectorOpen: true, userSelectorScrollTop: 0 }),
+      onCloseSelector: () => adminStore.setState({ userSelectorOpen: false, userSelectorScrollTop: 0 }),
       onChange: (field, value) =>
         adminStore.setState((prev) => ({
           editUserForm: { ...prev.editUserForm, [field]: value },
@@ -1229,6 +1232,7 @@ if (routePath.startsWith("/admin/")) {
         adminStore.setState({
           editUserOpen: false,
           userSelectorOpen: false,
+          userSelectorScrollTop: 0,
           userRfidModalOpen: false,
           userGroupModalOpen: false,
           addRfidDraft: "",
@@ -1274,6 +1278,7 @@ if (routePath.startsWith("/admin/")) {
           adminStore.setState({
             editUserOpen: false,
             userSelectorOpen: false,
+            userSelectorScrollTop: 0,
             userRfidModalOpen: false,
             userGroupModalOpen: false,
             addRfidDraft: "",
@@ -1648,6 +1653,13 @@ if (routePath.startsWith("/admin/")) {
       const list = app.querySelector(".booking-object-modal + .modal-overlay .selector-list");
       if (list) {
         list.scrollTop = state.bookingSelectorScrollTop || 0;
+      }
+    }
+
+    if (state.editUserOpen && state.userSelectorOpen) {
+      const list = app.querySelector(".edit-user-modal + .modal-overlay .selector-list");
+      if (list) {
+        list.scrollTop = state.userSelectorScrollTop || 0;
       }
     }
 
@@ -2927,6 +2939,7 @@ const loadWeekAvailability = async (service, weekStart) => {
     },
     editUserValidationErrors: {},
     userSelectorOpen: false,
+    userSelectorScrollTop: 0,
     userRfidModalOpen: false,
     userGroupModalOpen: false,
     addRfidDraft: "",
@@ -3958,6 +3971,8 @@ const loadWeekAvailability = async (service, weekStart) => {
       validationErrors: setupState.editUserValidationErrors || {},
       groupOptions: setupState.accessGroups || [],
       selectorOpen: setupState.userSelectorOpen,
+      selectorScrollTop: setupState.userSelectorScrollTop || 0,
+      onSelectorScroll: (value) => setSetupState({ userSelectorScrollTop: value }),
       addRfidOpen: setupState.userRfidModalOpen,
       onOpenAddRfid: () => setSetupState({ userRfidModalOpen: true }),
       onCloseAddRfid: () => setSetupState({ userRfidModalOpen: false, addRfidDraft: "" }),
@@ -3979,8 +3994,8 @@ const loadWeekAvailability = async (service, weekStart) => {
           addRfidDraft: "",
         });
       },
-      onOpenSelector: () => setSetupState({ userSelectorOpen: true }),
-      onCloseSelector: () => setSetupState({ userSelectorOpen: false }),
+      onOpenSelector: () => setSetupState({ userSelectorOpen: true, userSelectorScrollTop: 0 }),
+      onCloseSelector: () => setSetupState({ userSelectorOpen: false, userSelectorScrollTop: 0 }),
       onChange: (field, value) =>
         setSetupState({
           editUserForm: { ...setupState.editUserForm, [field]: value },
@@ -3990,6 +4005,7 @@ const loadWeekAvailability = async (service, weekStart) => {
         setSetupState({
           editUserOpen: false,
           userSelectorOpen: false,
+          userSelectorScrollTop: 0,
           userRfidModalOpen: false,
           userGroupModalOpen: false,
           addRfidDraft: "",
@@ -4031,6 +4047,7 @@ const loadWeekAvailability = async (service, weekStart) => {
           setSetupState({
             editUserOpen: false,
             userSelectorOpen: false,
+            userSelectorScrollTop: 0,
             userRfidModalOpen: false,
             userGroupModalOpen: false,
             addRfidDraft: "",
@@ -4352,6 +4369,13 @@ const loadWeekAvailability = async (service, weekStart) => {
       const list = app.querySelector(".booking-object-modal + .modal-overlay .selector-list");
       if (list) {
         list.scrollTop = setupState.bookingSelectorScrollTop || 0;
+      }
+    }
+
+    if (setupState.editUserOpen && setupState.userSelectorOpen) {
+      const list = app.querySelector(".edit-user-modal + .modal-overlay .selector-list");
+      if (list) {
+        list.scrollTop = setupState.userSelectorScrollTop || 0;
       }
     }
 
