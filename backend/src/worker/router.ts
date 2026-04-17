@@ -636,18 +636,19 @@ const handleBrfRegister = async (request: Request, env: Env) => {
   return json({ setup_url: setupUrl });
 };
 
-const handleBrfSetupVerify = async (request: Request, env: Env) => {
-  const body = await getJsonBody(request);
-  const payload = body?.payload;
-  if (!payload) {
-    return errorResponse(400, "invalid_payload");
-  }
+type VerifiedSetupPayload =
+  | { ok: false; error: Response }
+  | { ok: true; associationName: string; email: string; registerUuid: string };
 
-  let decoded;
+const verifySetupLinkPayload = async (env: Env, payload: unknown): Promise<VerifiedSetupPayload> => {
+  if (!payload || typeof payload !== "string") {
+    return { ok: false, error: errorResponse(400, "invalid_payload") };
+  }
+  let decoded: any;
   try {
     decoded = JSON.parse(base64UrlDecode(payload));
   } catch {
-    return errorResponse(400, "invalid_payload");
+    return { ok: false, error: errorResponse(400, "invalid_payload") };
   }
 
   const associationName = decoded?.association_name;
@@ -655,45 +656,147 @@ const handleBrfSetupVerify = async (request: Request, env: Env) => {
   const uuid = decoded?.uuid;
   const sha1 = decoded?.sha1;
   if (!associationName || !email || !uuid || !sha1) {
-    return errorResponse(400, "invalid_payload");
+    return { ok: false, error: errorResponse(400, "invalid_payload") };
   }
 
   const setupSalt = await getSetupSalt(env.DB);
   if (!setupSalt) {
-    return errorResponse(500, "missing_setup_salt");
+    return { ok: false, error: errorResponse(500, "missing_setup_salt") };
   }
 
   const expected = await sha1Hex(`${associationName}|${email}|${uuid}|${setupSalt}`);
   if (expected !== sha1) {
-    return errorResponse(401, "invalid_signature");
+    return { ok: false, error: errorResponse(401, "invalid_signature") };
   }
 
-  const existingTenant = await env.DB
-    .prepare("SELECT id, is_setup_complete, account_owner_token FROM tenants WHERE account_owner_token = ?")
-    .bind(uuid)
-    .first();
+  return {
+    ok: true,
+    associationName: String(associationName).trim(),
+    email: String(email).trim(),
+    registerUuid: String(uuid).trim(),
+  };
+};
+
+const handleBrfSetupVerify = async (request: Request, env: Env) => {
+  const body = await getJsonBody(request);
+  const verified = await verifySetupLinkPayload(env, body?.payload);
+  if (!verified.ok) {
+    return verified.error;
+  }
+  const { associationName, email, registerUuid } = verified;
+  const existingTenant = (await env.DB
+    .prepare(
+      `SELECT id, is_setup_complete, account_owner_token
+       FROM tenants
+       WHERE id = ?
+       LIMIT 1`
+    )
+    .bind(registerUuid)
+    .first()) as any;
 
   if (!existingTenant) {
-    const tenantId = uuid;
-    await env.DB.prepare(
-      `INSERT INTO tenants (id, name, is_active, account_owner_token, admin_email, is_setup_complete)
-       VALUES (?, ?, 1, ?, ?, 0)`
-    ).bind(tenantId, associationName, uuid, email).run();
+    const tenantId = registerUuid;
+    const accountOwnerToken = crypto.randomUUID();
+    await env.DB
+      .prepare(
+        `INSERT INTO tenants (id, name, is_active, account_owner_token, admin_email, is_setup_complete)
+         VALUES (?, ?, 1, ?, ?, 0)`
+      )
+      .bind(tenantId, associationName, accountOwnerToken, email)
+      .run();
   }
 
-  const tenant = existingTenant
+  const tenant = (existingTenant
     ? existingTenant
     : await env.DB
-        .prepare("SELECT id, is_setup_complete, account_owner_token FROM tenants WHERE account_owner_token = ?")
-        .bind(uuid)
-        .first();
+        .prepare(
+          `SELECT id, is_setup_complete, account_owner_token
+           FROM tenants
+           WHERE id = ?
+           LIMIT 1`
+        )
+        .bind(registerUuid)
+        .first()) as any;
 
+  const accountOwnerTokenOut = String(tenant?.account_owner_token || "").trim();
+  if (!accountOwnerTokenOut) {
+    return errorResponse(500, "tenant_missing_owner_token");
+  }
+
+  const isComplete = Number(tenant?.is_setup_complete) === 1;
   return json({
     association_name: associationName,
     email,
-    uuid,
-    account_owner_token: uuid,
-    is_setup_complete: (tenant as any)?.is_setup_complete === 1,
+    uuid: registerUuid,
+    tenant_id: String(tenant.id),
+    ...(isComplete ? {} : { account_owner_token: accountOwnerTokenOut }),
+    is_setup_complete: isComplete,
+  });
+};
+
+const handleBrfSetupResendAdminLink = async (request: Request, env: Env) => {
+  const body = await getJsonBody(request);
+  const verified = await verifySetupLinkPayload(env, body?.payload);
+  if (!verified.ok) {
+    return verified.error;
+  }
+  const { email, registerUuid } = verified;
+
+  const row = (await env.DB
+    .prepare(
+      `SELECT id, admin_email, is_setup_complete, account_owner_token
+       FROM tenants
+       WHERE id = ?
+       LIMIT 1`
+    )
+    .bind(registerUuid)
+    .first()) as any;
+
+  if (!row) {
+    return errorResponse(404, "not_found");
+  }
+  if (Number(row.is_setup_complete) !== 1) {
+    return errorResponse(409, "setup_not_complete");
+  }
+
+  const storedEmail = String(row.admin_email || "").trim().toLowerCase();
+  const payloadEmail = email.trim().toLowerCase();
+  if (!storedEmail || storedEmail !== payloadEmail) {
+    return errorResponse(403, "email_mismatch");
+  }
+
+  const accountOwnerToken = String(row.account_owner_token || "").trim();
+  if (!accountOwnerToken) {
+    return errorResponse(500, "tenant_missing_owner_token");
+  }
+
+  const requestUrl = new URL(request.url);
+  const bodyBaseUrl = String(body?.frontend_base_url || "").trim();
+  const baseUrlCandidate = bodyBaseUrl || env.FRONTEND_BASE_URL || requestUrl.origin;
+  let adminBaseUrl: string;
+  try {
+    adminBaseUrl = new URL(baseUrlCandidate).origin;
+  } catch {
+    adminBaseUrl = requestUrl.origin;
+  }
+  const adminUrl = `${adminBaseUrl.replace(/\/$/, "")}/admin/${accountOwnerToken}`;
+  const mailResult = await sendResendEmail(
+    env,
+    storedEmail,
+    "Admin‑länk till er bokningsportal",
+    buildAdminSetupCompleteEmailHtml(adminUrl)
+  );
+
+  if (mailResult.ok) {
+    const displayEmail = String(row.admin_email || "").trim() || email;
+    return json({ ok: true, email_sent: true, email: displayEmail });
+  }
+  const err = mailResult as { error: string; missing?: string[]; status?: number };
+  return json({
+    ok: false,
+    email_sent: false,
+    email_error: err.error,
+    ...(err.error === "missing_email_config" && err.missing?.length ? { missing_email_config: err.missing } : {}),
   });
 };
 
@@ -3210,6 +3313,8 @@ export const router = async (request: Request, env: Env) => {
   if (request.method === "POST" && path === "/api/rfid-login") return handleRfidLogin(request, env);
   if (request.method === "POST" && path === "/api/brf/register") return handleBrfRegister(request, env);
   if (request.method === "POST" && path === "/api/brf/setup/verify") return handleBrfSetupVerify(request, env);
+  if (request.method === "POST" && path === "/api/brf/setup/resend-admin-link")
+    return handleBrfSetupResendAdminLink(request, env);
   if (request.method === "POST" && path === "/api/brf/setup/complete") return handleBrfSetupComplete(request, env);
   if (request.method === "POST" && path === "/api/kiosk/access-token") return handleKioskAccessToken(request, env);
   if (request.method === "GET" && path === "/api/demo-links") return handleDemoLinks(request, env);

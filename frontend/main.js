@@ -28,7 +28,7 @@ import {
 } from "./api/session.js";
 import { getPublicConfig } from "./api/config.js";
 import { setAccessToken, clearApiEtagCache } from "./api/client.js";
-import { registerBrf, verifyBrfSetup, completeBrfSetup } from "./api/brf.js";
+import { registerBrf, verifyBrfSetup, completeBrfSetup, resendBrfSetupAdminLink } from "./api/brf.js";
 import { getCurrentBookings, createBooking, cancelBooking } from "./api/bookings.js";
 import { getBookableUsers } from "./api/users.js";
 import {
@@ -2968,6 +2968,9 @@ const loadWeekAvailability = async (service, weekStart) => {
     setupOrderError: "",
     setupQrPdfLoading: false,
     setupQrPdfError: "",
+    adminResendLoading: false,
+    adminResendSuccess: "",
+    adminResendError: "",
     importOpen: false,
     importStep: 1,
     importFileName: "",
@@ -3126,11 +3129,25 @@ const loadWeekAvailability = async (service, weekStart) => {
     }
 
     if (data?.is_setup_complete) {
-      window.location.href = `/admin/${data.account_owner_token || data.uuid}`;
+      setSetupState({
+        status: "setup_already_complete",
+        data: {
+          email: data.email,
+          association_name: data.association_name,
+        },
+        adminResendLoading: false,
+        adminResendSuccess: "",
+        adminResendError: "",
+      });
       return;
     }
 
-    setAccessToken(data.account_owner_token || data.uuid);
+    const setupOwnerToken = String(data?.account_owner_token || "").trim() || String(data?.uuid || "").trim();
+    if (!setupOwnerToken) {
+      setSetupState({ status: "error", error: "Saknar kontoägartoken från servern." });
+      return;
+    }
+    setAccessToken(setupOwnerToken);
     setSetupState({ status: "ready", data, error: "", stepError: "" });
     try {
       await loadSetupLists();
@@ -3371,6 +3388,101 @@ const loadWeekAvailability = async (service, weekStart) => {
                     createElement("div", { className: "modal-title", text: "Länken kunde inte verifieras" }),
                     createElement("div", { className: "form-error", text: setupState.error }),
                   ],
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+      return;
+    }
+
+    if (setupState.status === "setup_already_complete") {
+      const emailDisplay = String(setupState.data?.email || "").trim() || "—";
+      const assocName = String(setupState.data?.association_name || "").trim();
+      app.append(
+        createElement("div", {
+          className: "setup-page",
+          children: [
+            createElement("div", {
+              className: "setup-container",
+              children: [
+                createElement("div", {
+                  className: "setup-card card",
+                  children: [
+                    createElement("div", { className: "modal-title", text: "Setup är redan slutförd" }),
+                    createElement("p", {
+                      className: "screen-subtitle",
+                      text: assocName
+                        ? `Installationen för "${assocName}" är redan klar. Använd kontoägarlänken som skickades till er när setup slutfördes – den loggar in er i admin utan denna setup-länk.`
+                        : "Installationen är redan klar. Använd kontoägarlänken som skickades till er när setup slutfördes.",
+                    }),
+                    createElement("p", {
+                      className: "screen-subtitle",
+                      text: "Registrerad e-postadress för kontoägaren:",
+                    }),
+                    createElement("p", {
+                      className: "setup-admin-email",
+                      text: emailDisplay,
+                    }),
+                    setupState.adminResendSuccess
+                      ? createElement("div", { className: "form-field-hint", text: setupState.adminResendSuccess })
+                      : null,
+                    setupState.adminResendError
+                      ? createElement("div", { className: "form-error", text: setupState.adminResendError })
+                      : null,
+                    createElement("div", {
+                      className: "modal-footer setup-already-complete-footer",
+                      children: [
+                        createElement("button", {
+                          className: "secondary-button",
+                          text: setupState.adminResendLoading ? "Skickar…" : "Skicka kontoägarlänk på nytt",
+                          attrs: { disabled: setupState.adminResendLoading ? "disabled" : null },
+                          onClick: async () => {
+                            if (setupState.adminResendLoading) {
+                              return;
+                            }
+                            setSetupState({ adminResendLoading: true, adminResendError: "", adminResendSuccess: "" });
+                            try {
+                              const res = await resendBrfSetupAdminLink(setupToken);
+                              if (res?.email_sent) {
+                                setSetupState({
+                                  adminResendLoading: false,
+                                  adminResendSuccess: `E-post skickad till ${res.email || emailDisplay}.`,
+                                  adminResendError: "",
+                                });
+                              } else {
+                                const missing = res?.missing_email_config?.length
+                                  ? ` Saknar i Worker: ${res.missing_email_config.join(", ")}.`
+                                  : "";
+                                const err = res?.email_error ? ` (${res.email_error})` : "";
+                                setSetupState({
+                                  adminResendLoading: false,
+                                  adminResendSuccess: "",
+                                  adminResendError: `Kunde inte skicka e-post.${missing}${err}`,
+                                });
+                              }
+                            } catch (error) {
+                              const detail = error?.detail;
+                              let msg = "Kunde inte skicka e-post. Försök igen.";
+                              if (detail === "email_mismatch") {
+                                msg = "E-postadressen i länken stämmer inte mot föreningens registrering.";
+                              } else if (detail === "setup_not_complete") {
+                                msg = "Setup är inte markerad som slutförd.";
+                              } else if (detail === "not_found") {
+                                msg = "Föreningen hittades inte.";
+                              }
+                              setSetupState({
+                                adminResendLoading: false,
+                                adminResendError: msg,
+                                adminResendSuccess: "",
+                              });
+                            }
+                          },
+                        }),
+                      ],
+                    }),
+                  ].filter(Boolean),
                 }),
               ],
             }),

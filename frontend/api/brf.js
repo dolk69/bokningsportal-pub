@@ -12,12 +12,14 @@ export const registerBrf = (associationName, email, turnstileToken) =>
       turnstile_token: turnstileToken,
       frontend_base_url: typeof window !== "undefined" ? window.location.origin : undefined,
     }),
+    omitAuthorization: true,
   });
 
 export const verifyBrfSetup = (payload) =>
   apiRequest("/brf/setup/verify", {
     method: "POST",
     body: JSON.stringify({ payload }),
+    omitAuthorization: true,
   });
 
 export const completeBrfSetup = (accountOwnerToken, email) =>
@@ -28,4 +30,14 @@ export const completeBrfSetup = (accountOwnerToken, email) =>
       email,
       frontend_base_url: typeof window !== "undefined" ? window.location.origin : undefined,
     }),
+  });
+
+export const resendBrfSetupAdminLink = (payload) =>
+  apiRequest("/brf/setup/resend-admin-link", {
+    method: "POST",
+    body: JSON.stringify({
+      payload,
+      frontend_base_url: typeof window !== "undefined" ? window.location.origin : undefined,
+    }),
+    omitAuthorization: true,
   });
