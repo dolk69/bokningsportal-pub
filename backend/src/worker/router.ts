@@ -10,6 +10,9 @@ import {
 import { deleteUserBookings, userHasBookings } from "./utils/users.js";
 import { cancelFutureBookings, hasFutureBookings } from "./utils/bookingObjects.js";
 import { createAccessGroup, listAccessGroups } from "./utils/accessGroups.js";
+import { batchGetScreenLastSeen, recordScreenLastSeen } from "./screenPresence.js";
+import { buildKioskScreenInstructions } from "./kioskInstructions.js";
+import { getScreenByTokenPollCached, invalidateKioskPollAuthCache } from "./kioskPollAuthCacheClient.js";
 
 const json = (data: unknown, init: ResponseInit = {}) => {
   const headers = new Headers(init.headers || undefined);
@@ -206,6 +209,8 @@ const getUtcNowFromEnv = (env: Env) => {
   const parsed = new Date(forced);
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
+
+const getTimestampIso = (env: Env) => getUtcNowFromEnv(env).toISOString();
 
 const getWindowBoundaries = (bookingObject: any, nowUtc: Date) => {
   const minDate = new Date(nowUtc);
@@ -1733,12 +1738,15 @@ const handleKioskWebContext = async (request: Request, env: Env, url: URL) => {
   });
 };
 
-const requireScreenAuth = async (request: Request, env: Env) => {
+const requireScreenAuth = async (request: Request, env: Env, mode: "default" | "poll" = "default") => {
   const token = parseBearerToken(request.headers.get("authorization"));
   if (!token) {
     return { error: errorResponse(401, "unauthorized") };
   }
-  const screen = await getScreenByToken(env.DB, token);
+  const screen =
+    mode === "poll"
+      ? await getScreenByTokenPollCached(env, env.DB, token)
+      : await getScreenByToken(env.DB, token);
   if (!screen) {
     return { error: errorResponse(401, "unauthorized") };
   }
@@ -1831,7 +1839,20 @@ const handleAdminBookingScreens = async (request: Request, env: Env) => {
     )
     .bind(auth.tenant.id)
     .all();
-  return withTenantConditionalJson(request, auth.tenant, { booking_screens: rows.results });
+  const screenRows = rows.results as any[];
+  const ids = screenRows.map((r) => String(r.id));
+  const lastSeenDo = await batchGetScreenLastSeen(env, ids);
+  const booking_screens = screenRows.map((r) => {
+    const id = String(r.id);
+    const fromDo = lastSeenDo[id];
+    const atDo = fromDo != null && fromDo !== "" ? fromDo : null;
+    return {
+      ...r,
+      last_seen_at: atDo ?? r.last_seen_at ?? null,
+      last_verified_at: atDo ?? r.last_verified_at ?? null,
+    };
+  });
+  return withTenantConditionalJson(request, auth.tenant, { booking_screens });
 };
 
 const handleAdminPairBookingScreen = async (request: Request, env: Env) => {
@@ -1873,11 +1894,13 @@ const handleAdminPairBookingScreen = async (request: Request, env: Env) => {
   await env.DB
     .prepare(
       `INSERT INTO booking_screens (
-         id, tenant_id, name, pairing_code, screen_token, is_active, created_at, updated_at, paired_at, last_seen_at, last_verified_at
-       ) VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+         id, tenant_id, name, pairing_code, screen_token, is_active, created_at, updated_at, paired_at, last_verified_at
+       ) VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
     )
     .bind(screenId, auth.tenant.id, name, pairingCode, screenToken)
     .run();
+
+  await recordScreenLastSeen(env, screenId, getTimestampIso(env));
 
   await env.DB
     .prepare(
@@ -1908,6 +1931,13 @@ const handleAdminUpdateBookingScreen = async (request: Request, env: Env, screen
   if (!name) {
     return errorResponse(400, "invalid_name");
   }
+  const existing = await env.DB
+    .prepare("SELECT screen_token FROM booking_screens WHERE id = ? AND tenant_id = ? AND is_active = 1")
+    .bind(screenId, auth.tenant.id)
+    .first();
+  if (!existing) {
+    return errorResponse(404, "not_found");
+  }
   const result = await env.DB
     .prepare(
       `UPDATE booking_screens
@@ -1919,6 +1949,7 @@ const handleAdminUpdateBookingScreen = async (request: Request, env: Env, screen
   if (!result?.success) {
     return errorResponse(404, "not_found");
   }
+  await invalidateKioskPollAuthCache(env, String((existing as any).screen_token || ""));
   return json({ id: screenId, name });
 };
 
@@ -1927,7 +1958,7 @@ const handleAdminDeleteBookingScreen = async (request: Request, env: Env, screen
   if ("error" in auth) return auth.error;
 
   const screen = await env.DB
-    .prepare("SELECT pairing_code FROM booking_screens WHERE id = ? AND tenant_id = ? AND is_active = 1")
+    .prepare("SELECT pairing_code, screen_token FROM booking_screens WHERE id = ? AND tenant_id = ? AND is_active = 1")
     .bind(screenId, auth.tenant.id)
     .first();
   if (!screen) {
@@ -1943,6 +1974,7 @@ const handleAdminDeleteBookingScreen = async (request: Request, env: Env, screen
     .bind(screenId, auth.tenant.id)
     .run();
   await env.DB.prepare("DELETE FROM kiosk_pairing_codes WHERE code = ?").bind(String(screen.pairing_code)).run();
+  await invalidateKioskPollAuthCache(env, String((screen as any).screen_token || ""));
   return json({ id: screenId, deleted: true });
 };
 
@@ -1967,14 +1999,8 @@ const handleKioskPairingClaim = async (request: Request, env: Env) => {
     return errorResponse(404, "not_paired");
   }
 
-  await env.DB
-    .prepare(
-      `UPDATE booking_screens
-       SET last_seen_at = CURRENT_TIMESTAMP, last_verified_at = CURRENT_TIMESTAMP
-       WHERE id = ?`
-    )
-    .bind(row.id)
-    .run();
+  const ts = getTimestampIso(env);
+  await recordScreenLastSeen(env, String(row.id), ts);
 
   return json({
     paired: true,
@@ -1989,16 +2015,15 @@ const handleKioskPairingClaim = async (request: Request, env: Env) => {
 };
 
 const handleKioskScreenStatus = async (request: Request, env: Env) => {
-  const auth = await requireScreenAuth(request, env);
+  const auth = await requireScreenAuth(request, env, "poll");
   if ("error" in auth) return auth.error;
-  await env.DB
-    .prepare("UPDATE booking_screens SET last_seen_at = CURRENT_TIMESTAMP, last_verified_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(auth.screen.id)
-    .run();
+  const ts = getTimestampIso(env);
+  await recordScreenLastSeen(env, String(auth.screen.id), ts);
   const kioskTenant: TenantEtagSource = {
     id: String(auth.screen.tenant_id),
     last_changed_at: String(auth.screen.tenant_last_changed_at ?? ""),
   };
+  const instructions = buildKioskScreenInstructions(env);
   return withTenantConditionalJson(request, kioskTenant, {
     connected: true,
     screen: {
@@ -2007,6 +2032,7 @@ const handleKioskScreenStatus = async (request: Request, env: Env) => {
       tenant_id: auth.screen.tenant_id,
       tenant_name: auth.screen.tenant_name,
     },
+    ...(instructions ? { instructions } : {}),
   });
 };
 
@@ -2064,10 +2090,8 @@ const handleKioskRfidLogin = async (request: Request, env: Env) => {
       .run();
   }
 
-  await env.DB
-    .prepare("UPDATE booking_screens SET last_seen_at = CURRENT_TIMESTAMP, last_verified_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(auth.screen.id)
-    .run();
+  const ts = getTimestampIso(env);
+  await recordScreenLastSeen(env, String(auth.screen.id), ts);
 
   return json({
     booking_url: `/user/${accessToken}`,

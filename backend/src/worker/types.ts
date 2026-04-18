@@ -17,8 +17,18 @@ export type D1DatabaseSession = D1Database & {
   getBookmark?: () => string | null;
 };
 
+/** Workers KV (last_seen + poll-auth-cache; samma namespace, olika nyckelprefix). */
+export type KVNamespace = {
+  get(key: string, type?: "text"): Promise<string | null>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+};
+
 export interface Env {
   DB: D1Database;
+  KIOSK_EDGE_KV?: KVNamespace;
+  /** TTL i sekunder för poll-auth-cache i KV (standard 30, max 300, min 5). */
+  KIOSK_POLL_AUTH_CACHE_TTL_SECONDS?: string;
   FORCE_NOW_UTC?: string;
   DEBUG_AVAILABILITY_DELAY_MS?: string;
   RESEND_API_KEY?: string;
@@ -26,4 +36,10 @@ export interface Env {
   FRONTEND_BASE_URL?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET?: string;
+  /** Senaste rekommenderade Android-kioskversion (visas för skärmar). */
+  KIOSK_LATEST_ANDROID_VERSION?: string;
+  /** URL till APK eller releasesida. */
+  KIOSK_ANDROID_DOWNLOAD_URL?: string;
+  /** Frivillig kort text till skärm (t.ex. om uppdatering). */
+  KIOSK_UPDATE_MESSAGE_SV?: string;
 }
