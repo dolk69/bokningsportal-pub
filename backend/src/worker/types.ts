@@ -17,7 +17,7 @@ export type D1DatabaseSession = D1Database & {
   getBookmark?: () => string | null;
 };
 
-/** Workers KV (last_seen + poll-auth-cache; samma namespace, olika nyckelprefix). */
+/** Workers KV (kiosk last_seen + poll-auth-cache; RFID abuse — olika bindings, samma typ). */
 export type KVNamespace = {
   get(key: string, type?: "text"): Promise<string | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
@@ -42,4 +42,6 @@ export interface Env {
   KIOSK_ANDROID_DOWNLOAD_URL?: string;
   /** Frivillig kort text till skärm (t.ex. om uppdatering). */
   KIOSK_UPDATE_MESSAGE_SV?: string;
+  /** Rate limit / global attack-läge för RFID-auth; eget KV-namespace. */
+  RFID_ABUSE_KV?: KVNamespace;
 }

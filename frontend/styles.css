@@ -2325,6 +2325,25 @@ body.web-kiosk-idle-body {
   color: #fecaca;
 }
 
+.web-kiosk-idle-turnstile-wrap {
+  margin-top: 20px;
+  text-align: center;
+  max-width: 100%;
+}
+
+.web-kiosk-idle-turnstile-copy {
+  font-size: clamp(14px, 2.2vw, 18px);
+  color: #e5e7eb;
+  margin-bottom: 12px;
+}
+
+.web-kiosk-idle-turnstile-host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72px;
+}
+
 .web-kiosk-popup {
   position: absolute;
   left: 50%;
@@ -2340,6 +2359,7 @@ body.web-kiosk-idle-body {
   text-align: center;
   font-size: clamp(15px, 2vw, 18px);
   line-height: 1.35;
+  white-space: pre-line;
   z-index: 2;
 }
 

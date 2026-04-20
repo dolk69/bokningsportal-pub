@@ -58,7 +58,16 @@ export const attachHidRfidListener = (win, { onUid }) => {
 
 /**
  * @param {HTMLElement} root
- * @param {{ tenantName: string; loading: boolean; error: string; popupMessage: string; popupIsError: boolean }} state
+ * @param {{
+ *   tenantName: string;
+ *   loading: boolean;
+ *   error: string;
+ *   popupMessage: string;
+ *   popupIsError: boolean;
+ *   turnstileSiteKey?: string;
+ *   turnstilePendingUid?: string;
+ *   turnstileError?: string;
+ * }} state
  */
 export const renderWebKioskIdle = (root, state) => {
   clearElement(root);
@@ -78,7 +87,9 @@ export const renderWebKioskIdle = (root, state) => {
   });
   const hint = createElement("div", {
     className: "web-kiosk-idle-hint",
-    text: "Blippa din tagg eller iLoq-nyckel för att logga in",
+    text: state.turnstileSiteKey
+      ? "Verifiera nedan och försök sedan igen med din tagg."
+      : "Blippa din tagg eller iLoq-nyckel för att logga in",
   });
 
   const children = [title, forLabel, tenant, hint];
@@ -99,13 +110,39 @@ export const renderWebKioskIdle = (root, state) => {
     );
   }
 
+  if (state.turnstileSiteKey && state.turnstilePendingUid) {
+    const wrapChildren = [
+      createElement("div", {
+        className: "web-kiosk-idle-turnstile-copy",
+        text: "Säkerhetsläge är aktivt. Bekräfta att du är människa:",
+      }),
+      createElement("div", {
+        className: "web-kiosk-idle-turnstile-host",
+        attrs: { id: "kiosk-web-turnstile-host" },
+      }),
+    ];
+    if (state.turnstileError) {
+      wrapChildren.push(
+        createElement("div", {
+          className: "web-kiosk-idle-status web-kiosk-idle-status-error",
+          text: state.turnstileError,
+        })
+      );
+    }
+    children.push(
+      createElement("div", {
+        className: "web-kiosk-idle-turnstile-wrap",
+        children: wrapChildren,
+      })
+    );
+  }
+
   const column = createElement("div", {
     className: "web-kiosk-idle-column",
     children,
   });
 
-  const wrap = [column];
-
+  const wrap = [];
   if (state.popupMessage) {
     wrap.push(
       createElement("div", {
@@ -114,6 +151,7 @@ export const renderWebKioskIdle = (root, state) => {
       })
     );
   }
+  wrap.push(column);
 
   root.append(
     createElement("div", {

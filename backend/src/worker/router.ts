@@ -2,6 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { Env, D1Database } from "./types.js";
+import { verifyTurnstileToken } from "./turnstileVerify.js";
+import {
+  enforceRfidAbusePolicy,
+  isRfidUnderAttack,
+  recordRfidAuthFailure,
+  recordRfidAuthSuccess,
+} from "./rfidAuthAbuse.js";
 import {
   type TenantEtagSource,
   withTenantConditionalBody,
@@ -423,46 +430,6 @@ const getAppConfig = async (db: D1Database, key: string) =>
 const getSetupSalt = async (db: D1Database) => {
   const row = await getAppConfig(db, "setup_link_salt");
   return row?.value ? String(row.value) : "";
-};
-
-const verifyTurnstileToken = async (request: Request, env: Env, token: string) => {
-  const secret = env.TURNSTILE_SECRET?.trim();
-  if (!secret) {
-    return { ok: false, error: "missing_turnstile_secret" as const };
-  }
-  try {
-    const ip =
-      request.headers.get("cf-connecting-ip") ||
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      undefined;
-    const form = new URLSearchParams();
-    form.set("secret", secret);
-    form.set("response", token);
-    if (ip) {
-      form.set("remoteip", ip);
-    }
-    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: form.toString(),
-    });
-    if (!response.ok) {
-      return { ok: false, error: "turnstile_unavailable" as const };
-    }
-    const payload = (await response.json()) as {
-      success?: boolean;
-      "error-codes"?: string[];
-      action?: string;
-    };
-    if (!payload?.success) {
-      return { ok: false, error: "turnstile_invalid" as const, codes: payload?.["error-codes"] || [] };
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "turnstile_unavailable" as const };
-  }
 };
 
 const sendResendEmail = async (env: Env, to: string, subject: string, html: string) => {
@@ -1546,10 +1513,16 @@ const buildWeekAvailability = async (db: D1Database, user: any, bookingObjectId:
 
 const handleRfidLogin = async (request: Request, env: Env) => {
   const body = await getJsonBody(request);
+  const abuseBlock = await enforceRfidAbusePolicy(request, env, body as Record<string, unknown>);
+  if (abuseBlock) {
+    return abuseBlock;
+  }
+
   const uidCandidates = getRfidLookupCandidates(body?.uid);
   const tenantIdFromBody = String(body?.tenant_id || "").trim();
   const screenToken = parseBearerToken(request.headers.get("authorization"));
   if (!uidCandidates.length) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(401, "invalid_rfid");
   }
 
@@ -1558,6 +1531,7 @@ const handleRfidLogin = async (request: Request, env: Env) => {
   if (screenToken) {
     const screen = await getScreenByToken(env.DB, screenToken);
     if (!screen) {
+      await recordRfidAuthFailure(env, request);
       return errorResponse(401, "invalid_screen_token");
     }
     tenantIdFilter = String(screen.tenant_id);
@@ -1583,9 +1557,11 @@ const handleRfidLogin = async (request: Request, env: Env) => {
     .bind(...uidCandidates, tenantIdFilter, tenantIdFilter)
     .first()) as any;
   if (!rfidContext) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(401, "invalid_rfid");
   }
   if (tenantIdFilter && String(rfidContext.tag_tenant_id) !== tenantIdFilter) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(403, "rfid_not_allowed_for_screen");
   }
 
@@ -1604,6 +1580,8 @@ const handleRfidLogin = async (request: Request, env: Env) => {
       .bind(accessToken)
       .run();
   }
+
+  await recordRfidAuthSuccess(env, request);
 
   return json(
     {
@@ -1712,6 +1690,7 @@ const handleDemoLinks = async (request: Request, env: Env) => {
 const handlePublicConfig = async (_request: Request, env: Env) =>
   json({
     turnstile_site_key: String(env.TURNSTILE_SITE_KEY || "").trim(),
+    rfid_under_attack: await isRfidUnderAttack(env),
   });
 
 const isSafeTenantIdParam = (value: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(value);
@@ -2041,12 +2020,19 @@ const handleKioskRfidLogin = async (request: Request, env: Env) => {
   if ("error" in auth) return auth.error;
 
   const body = await getJsonBody(request);
+  const abuseBlock = await enforceRfidAbusePolicy(request, env, body as Record<string, unknown>);
+  if (abuseBlock) {
+    return abuseBlock;
+  }
+
   const uidCandidates = getRfidLookupCandidates(body?.uid);
   const tenantIdFromBody = String(body?.tenant_id || "").trim();
   if (!uidCandidates.length) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(401, "invalid_rfid");
   }
   if (tenantIdFromBody && tenantIdFromBody !== String(auth.screen.tenant_id)) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(403, "rfid_not_allowed_for_screen");
   }
 
@@ -2067,6 +2053,7 @@ const handleKioskRfidLogin = async (request: Request, env: Env) => {
     .bind(...uidCandidates, auth.screen.tenant_id)
     .first()) as any;
   if (!rfidContext) {
+    await recordRfidAuthFailure(env, request);
     return errorResponse(401, "invalid_rfid");
   }
 
@@ -2092,6 +2079,8 @@ const handleKioskRfidLogin = async (request: Request, env: Env) => {
 
   const ts = getTimestampIso(env);
   await recordScreenLastSeen(env, String(auth.screen.id), ts);
+
+  await recordRfidAuthSuccess(env, request);
 
   return json({
     booking_url: `/user/${accessToken}`,

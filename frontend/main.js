@@ -1729,10 +1729,15 @@ if (routePath.startsWith("/admin/")) {
     popupMessage: "",
     popupIsError: false,
     busy: false,
+    turnstileSiteKey: "",
+    turnstilePendingUid: "",
+    turnstileError: "",
   });
 
   let detachHid = null;
   let popupTimer = null;
+  let kioskRateLimitIntervalId = null;
+  let kioskTurnstileWidgetId = null;
 
   const clearKioskPopupTimer = () => {
     if (popupTimer) {
@@ -1741,13 +1746,73 @@ if (routePath.startsWith("/admin/")) {
     }
   };
 
+  const clearKioskRateLimitInterval = () => {
+    if (kioskRateLimitIntervalId) {
+      clearInterval(kioskRateLimitIntervalId);
+      kioskRateLimitIntervalId = null;
+    }
+  };
+
+  const formatKioskRateLimitClock = (totalSeconds) => {
+    const sec = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  /** Samma popup som övriga kioskfel; levande nedräkning i texten. */
+  const showKioskRateLimitCountdown = (retryAfterSeconds) => {
+    clearKioskPopupTimer();
+    clearKioskRateLimitInterval();
+    const total = Math.max(1, Math.ceil(Number(retryAfterSeconds) || 60));
+    const endsAt = Date.now() + total * 1000;
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      if (remaining <= 0) {
+        clearKioskRateLimitInterval();
+        kioskStore.setState({
+          popupMessage: "Du kan försöka blippa igen.",
+          popupIsError: false,
+        });
+        popupTimer = setTimeout(() => {
+          popupTimer = null;
+          kioskStore.setState({ popupMessage: "", popupIsError: false });
+        }, 4000);
+        return;
+      }
+      kioskStore.setState({
+        popupMessage: `För många försök.\n\nFörsök igen om ${formatKioskRateLimitClock(remaining)}.`,
+        popupIsError: true,
+      });
+    };
+
+    tick();
+    kioskRateLimitIntervalId = setInterval(tick, 1000);
+  };
+
   const showKioskPopup = (message, isError) => {
     clearKioskPopupTimer();
-    kioskStore.setState({ popupMessage: message, popupIsError: Boolean(isError) });
+    clearKioskRateLimitInterval();
+    kioskStore.setState({
+      popupMessage: message,
+      popupIsError: Boolean(isError),
+    });
     popupTimer = setTimeout(() => {
       popupTimer = null;
       kioskStore.setState({ popupMessage: "", popupIsError: false });
     }, 5000);
+  };
+
+  const removeKioskTurnstileWidget = () => {
+    if (kioskTurnstileWidgetId !== null && window.turnstile?.remove) {
+      try {
+        window.turnstile.remove(kioskTurnstileWidgetId);
+      } catch {
+        /* ignore */
+      }
+    }
+    kioskTurnstileWidgetId = null;
   };
 
   const renderKioskIdle = () => {
@@ -1758,26 +1823,133 @@ if (routePath.startsWith("/admin/")) {
       error: state.error,
       popupMessage: state.popupMessage,
       popupIsError: state.popupIsError,
+      turnstileSiteKey: state.turnstileSiteKey,
+      turnstilePendingUid: state.turnstilePendingUid,
+      turnstileError: state.turnstileError,
     });
   };
 
-  const tryKioskRfidLogin = async (uid) => {
+  const mountKioskTurnstile = () => {
+    const st = kioskStore.getState();
+    const host = document.getElementById("kiosk-web-turnstile-host");
+    if (!st.turnstileSiteKey || !st.turnstilePendingUid || !host) {
+      removeKioskTurnstileWidget();
+      return;
+    }
+    if (kioskTurnstileWidgetId !== null) {
+      return;
+    }
+    ensureTurnstileScript()
+      .then((turnstile) => {
+        const cur = kioskStore.getState();
+        if (!cur.turnstileSiteKey || !cur.turnstilePendingUid) {
+          return;
+        }
+        const mountHost = document.getElementById("kiosk-web-turnstile-host");
+        if (!turnstile || !mountHost) {
+          return;
+        }
+        kioskTurnstileWidgetId = turnstile.render("#kiosk-web-turnstile-host", {
+          sitekey: cur.turnstileSiteKey,
+          callback: (token) => {
+            const pendingUid = kioskStore.getState().turnstilePendingUid;
+            removeKioskTurnstileWidget();
+            kioskStore.setState({
+              turnstileSiteKey: "",
+              turnstilePendingUid: "",
+              turnstileError: "",
+            });
+            if (pendingUid) {
+              void tryKioskRfidLogin(pendingUid, { turnstileToken: token });
+            }
+          },
+          "error-callback": () => {
+            removeKioskTurnstileWidget();
+            kioskStore.setState({
+              turnstileError: "Verifieringen misslyckades. Försök igen.",
+            });
+          },
+          "expired-callback": () => {
+            removeKioskTurnstileWidget();
+            kioskStore.setState({
+              turnstileError: "Verifieringen har gått ut. Försök igen.",
+            });
+          },
+        });
+      })
+      .catch(() => {
+        kioskStore.setState({
+          turnstileError: "Kunde inte ladda säkerhetsverifiering.",
+        });
+      });
+  };
+
+  const tryKioskRfidLogin = async (uid, opts = {}) => {
     const st = kioskStore.getState();
     if (st.busy || st.loading || st.error || !kioskTenantIdOk) {
       return;
     }
     kioskStore.setState({ busy: true });
     try {
-      const res = await loginWithRfid(uid, kioskTenantId);
+      const res = await loginWithRfid(uid, kioskTenantId, {
+        turnstileToken: opts.turnstileToken,
+      });
       const bookingPath = String(res?.booking_url || "").trim();
       if (!bookingPath) {
         throw new Error("missing_booking_url");
       }
+      removeKioskTurnstileWidget();
+      clearKioskRateLimitInterval();
+      kioskStore.setState({
+        turnstileSiteKey: "",
+        turnstilePendingUid: "",
+        turnstileError: "",
+      });
       sessionStorage.setItem("kioskHomePath", `/kiosk/${kioskTenantId}`);
       const next = new URL(bookingPath, window.location.origin);
       next.searchParams.set("kiosk", "1");
       window.location.assign(next.pathname + next.search + (next.hash || ""));
     } catch (error) {
+      if (error?.requiresTurnstile || error?.detail === "rfid_requires_turnstile") {
+        let siteKey = String(error?.turnstileSiteKey || "").trim();
+        if (!siteKey) {
+          try {
+            const cfg = await getPublicConfig();
+            siteKey = String(cfg?.turnstile_site_key || "").trim();
+          } catch {
+            /* ignore */
+          }
+        }
+        if (!siteKey) {
+          showKioskPopup(
+            "Säkerhetsläget kräver verifiering men Turnstile är inte konfigurerat. Kontakta administratören.",
+            true
+          );
+          return;
+        }
+        removeKioskTurnstileWidget();
+        kioskStore.setState({
+          turnstileSiteKey: siteKey,
+          turnstilePendingUid: uid,
+          turnstileError: "",
+        });
+        return;
+      }
+      if (error?.detail === "rfid_rate_limited" || error?.status === 429) {
+        const sec = Number(error?.retryAfterSeconds) || 60;
+        showKioskRateLimitCountdown(sec);
+        return;
+      }
+      if (String(error?.detail || "").startsWith("turnstile_invalid")) {
+        showKioskPopup("Säkerhetsverifiering misslyckades. Försök igen.", true);
+        removeKioskTurnstileWidget();
+        kioskStore.setState({
+          turnstileSiteKey: "",
+          turnstilePendingUid: "",
+          turnstileError: "",
+        });
+        return;
+      }
       const detail = error?.detail;
       let msg = `Inloggning misslyckades (${error?.status ?? "okänt"}).`;
       if (detail === "invalid_rfid") {
@@ -1795,7 +1967,10 @@ if (routePath.startsWith("/admin/")) {
     }
   };
 
-  kioskStore.subscribe(renderKioskIdle);
+  kioskStore.subscribe(() => {
+    renderKioskIdle();
+    requestAnimationFrame(() => mountKioskTurnstile());
+  });
   renderKioskIdle();
 
   void (async () => {
