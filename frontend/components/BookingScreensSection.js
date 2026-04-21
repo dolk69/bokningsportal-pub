@@ -26,7 +26,7 @@ const createOrderModal = ({ open, onCancel, onConfirm }) => {
         children: [
           createElement("div", { className: "modal-title", text: "Beställ bokningsskärmar" }),
           createElement("p", {
-            text: "En beställningsförfrågan kommer skickas. Pris: 6,000:-/st inklusive moms.",
+            text: "En beställningsförfrågan kommer skickas. Pris: 7,000:-/st inklusive moms.",
           }),
           createElement("div", {
             className: "modal-footer modal-footer-align-end",

@@ -3847,7 +3847,7 @@ const loadWeekAvailability = async (service, weekStart) => {
         }),
         createElement("div", {
           className: "form-field-hint form-inline-section-hint",
-          text: "Beställ bokningsskärmar till er förening. Pris: 6 000 kr per skärm inklusive moms. Klicka intill så kommer en säljare från embsign AB att kontakta dig!",
+          text: "Beställ bokningsskärmar till er förening. Pris: 7 000 kr per skärm inklusive moms. Klicka intill så kommer en säljare från embsign AB att kontakta dig!",
         }),
         createElement("button", {
           className: "primary-button setup-inline-action-button",
@@ -5008,11 +5008,11 @@ const loadWeekAvailability = async (service, weekStart) => {
                   createElement("ul", {
                     className: "landing-list",
                     children: [
-                      createElement("li", { text: "Stor 18\" skärm" }),
+                      createElement("li", { text: "Stor 15.6\" skärm" }),
                       createElement("li", { text: "Både MiFare och RFID/EM" }),
                       createElement("li", { text: "Power over Ethernet eller separat strömsladd" }),
-                      createElement("li", { text: "WiFi, ethernet eller 4G" }),
-                      createElement("li", { text: "Från 6,000:- inklusive moms med väggfäste" }),
+                      createElement("li", { text: "WiFi, ethernet och 4G" }),
+                      createElement("li", { text: "Pris 7,000:- inklusive moms med väggfäste" }),
                     ],
                   }),
                   createElement("div", {
