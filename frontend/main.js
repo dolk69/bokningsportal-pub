@@ -1,20 +1,16 @@
 // Copyright (C) 2026 embsign AB
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import landingScreenUrl from "./img/screen.png";
+import landingScreen220WebpUrl from "./img/screen-220.webp";
+import landingScreen440WebpUrl from "./img/screen-440.webp";
+import landingScreen220PngUrl from "./img/screen-220.png";
+import landingScreen440PngUrl from "./img/screen-440.png";
 import { Header } from "./components/Header.js";
 import { ServiceSelection } from "./screens/ServiceSelection.js";
 import { DateSelection } from "./screens/DateSelection.js";
 import { TimeSelection } from "./screens/TimeSelection.js";
 import { Confirmation } from "./screens/Confirmation.js";
-import { AdminDashboard } from "./screens/AdminDashboard.js";
-import { BookingObjectModal } from "./components/BookingObjectModal.js";
 import { CreateBrfModal } from "./components/CreateBrfModal.js";
-import { ImportUsersModal } from "./components/ImportUsersModal.js";
-import { EditUserModal } from "./components/EditUserModal.js";
-import { ReportModal } from "./components/ReportModal.js";
-import { BookingObjectsTable } from "./components/BookingObjectsTable.js";
-import { UserList } from "./components/UserList.js";
 import { createBookingSummary } from "./utils/bookingSummary.js";
 import { buildCalendarDownloadPageUrl, buildCalendarQrImageUrl } from "./utils/calendarExport.js";
 import { buildConfirmModalState, renderConfirmModal } from "./utils/confirmModal.js";
@@ -38,36 +34,8 @@ import {
   getWeekStart,
   weekAvailabilityStateKey,
 } from "./api/availability.js";
-import {
-  getBookingGroups,
-  getBookingObjects,
-  getBookingScreens,
-  getUsers,
-  updateUser,
-  createUser,
-  deleteUser,
-  getAccessGroups,
-  createAccessGroup,
-  createBookingGroup,
-  createBookingObject,
-  updateBookingObject,
-  deactivateBookingObject,
-  getUserLoginQrExportData,
-  getImportRules,
-  saveImportRules,
-  previewImport,
-  applyImport,
-  downloadReportCsv,
-  orderBookingScreens,
-  pairBookingScreen,
-  updateBookingScreen,
-  deleteBookingScreen,
-  getAdminUserLoginQr,
-  rotateAdminUserLoginQr,
-} from "./api/admin.js";
 import { createStore } from "./hooks/useStore.js";
 import { createElement, clearElement } from "./hooks/dom.js";
-import { downloadApartmentLoginQrPdf } from "./utils/apartmentQrPdf.js";
 import { attachHidRfidListener, renderWebKioskIdle } from "./kiosk/webKioskIdle.js";
 
 const app = document.getElementById("app");
@@ -462,6 +430,55 @@ const readCsvFile = async (file) => {
 };
 
 if (routePath.startsWith("/admin/")) {
+  void (async () => {
+    const [
+    { AdminDashboard },
+    { BookingObjectModal },
+    { ImportUsersModal },
+    { EditUserModal },
+    { ReportModal },
+    adminTablesModule,
+    adminApiModule,
+    { downloadApartmentLoginQrPdf },
+    ] = await Promise.all([
+      import("./screens/AdminDashboard.js"),
+      import("./components/BookingObjectModal.js"),
+      import("./components/ImportUsersModal.js"),
+      import("./components/EditUserModal.js"),
+      import("./components/ReportModal.js"),
+      import("./components/BookingObjectsTable.js"),
+      import("./api/admin.js"),
+      import("./utils/apartmentQrPdf.js"),
+    ]);
+    const { BookingObjectsTable, UserList } = adminTablesModule;
+    const {
+    getBookingGroups,
+    getBookingObjects,
+    getBookingScreens,
+    getUsers,
+    updateUser,
+    createUser,
+    deleteUser,
+    getAccessGroups,
+    createAccessGroup,
+    createBookingGroup,
+    createBookingObject,
+    updateBookingObject,
+    deactivateBookingObject,
+    getUserLoginQrExportData,
+    getImportRules,
+    saveImportRules,
+    previewImport,
+    applyImport,
+    downloadReportCsv,
+    orderBookingScreens,
+    pairBookingScreen,
+    updateBookingScreen,
+    deleteBookingScreen,
+    getAdminUserLoginQr,
+    rotateAdminUserLoginQr,
+    } = adminApiModule;
+
   const buildRegexEffect = (samples, regexSource) => {
     if (!regexSource) {
       return samples.map((original) => ({ original, value: "—" }));
@@ -1711,8 +1728,9 @@ if (routePath.startsWith("/admin/")) {
     window.scrollTo(docScrollX, docScrollY);
   };
 
-  adminStore.subscribe(renderAdmin);
-  renderAdmin();
+    adminStore.subscribe(renderAdmin);
+    renderAdmin();
+  })();
 } else if (routePath.startsWith("/kiosk/")) {
   setAccessToken(null);
   clearApiEtagCache();
@@ -3125,6 +3143,39 @@ const loadWeekAvailability = async (service, weekStart) => {
   store.subscribe(render);
   render();
 } else if (routePath.startsWith("/setup/")) {
+  void (async () => {
+    const [{ BookingObjectModal }, { ImportUsersModal }, { EditUserModal }, adminTablesModule, adminApiModule, { downloadApartmentLoginQrPdf }] =
+      await Promise.all([
+        import("./components/BookingObjectModal.js"),
+        import("./components/ImportUsersModal.js"),
+        import("./components/EditUserModal.js"),
+        import("./components/BookingObjectsTable.js"),
+        import("./api/admin.js"),
+        import("./utils/apartmentQrPdf.js"),
+      ]);
+    const { BookingObjectsTable, UserList } = adminTablesModule;
+    const {
+    getBookingGroups,
+    getBookingObjects,
+    getUsers,
+    deleteUser,
+    getAccessGroups,
+    createAccessGroup,
+    createBookingGroup,
+    createBookingObject,
+    updateBookingObject,
+    deactivateBookingObject,
+    getUserLoginQrExportData,
+    getImportRules,
+    saveImportRules,
+    previewImport,
+    applyImport,
+    orderBookingScreens,
+    updateUser,
+    createUser,
+    pairBookingScreen,
+    } = adminApiModule;
+
   const setupState = {
     step: 1,
     status: "loading",
@@ -4630,8 +4681,9 @@ const loadWeekAvailability = async (service, weekStart) => {
     window.scrollTo(docScrollX, docScrollY);
   };
 
-  renderSetup();
-  loadSetupData();
+    renderSetup();
+    loadSetupData();
+  })();
 } else {
   let turnstileSiteKey = "";
   const createBrfState = {
@@ -5027,13 +5079,34 @@ const loadWeekAvailability = async (service, weekStart) => {
                   createElement("div", {
                     className: "landing-photo-placeholder-copy",
                     children: [
-                      createElement("img", {
-                        className: "landing-qr-image",
-                        attrs: {
-                          src: landingScreenUrl,
-                          alt: "Digital bokningstavla",
-                          loading: "lazy",
-                        },
+                      createElement("picture", {
+                        children: [
+                          createElement("source", {
+                            attrs: {
+                              type: "image/webp",
+                              srcset: `${landingScreen220WebpUrl} 220w, ${landingScreen440WebpUrl} 440w`,
+                              sizes: "(max-width: 600px) 180px, 220px",
+                            },
+                          }),
+                          createElement("source", {
+                            attrs: {
+                              type: "image/png",
+                              srcset: `${landingScreen220PngUrl} 220w, ${landingScreen440PngUrl} 440w`,
+                              sizes: "(max-width: 600px) 180px, 220px",
+                            },
+                          }),
+                          createElement("img", {
+                            className: "landing-qr-image",
+                            attrs: {
+                              src: landingScreen220PngUrl,
+                              alt: "Digital bokningstavla",
+                              loading: "lazy",
+                              decoding: "async",
+                              width: "220",
+                              height: "165",
+                            },
+                          }),
+                        ],
                       }),
                       createElement("p", {
                         className: "landing-image-caption",

@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && cp -r functions dist/",
-    "dev": "vite",
+    "generate:images": "node ./scripts/generate-responsive-images.mjs",
+    "build": "npm run generate:images && vite build && cp -r functions dist/",
+    "dev": "npm run generate:images && vite",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "vite": "^6.0.3"
   }
 }
