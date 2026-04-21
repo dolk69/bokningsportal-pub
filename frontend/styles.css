@@ -1,8 +1,6 @@
 // Copyright (C) 2026 embsign AB
 // SPDX-License-Identifier: AGPL-3.0-only
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
 :root {
   color-scheme: light;
   --bg: #ffffff;
