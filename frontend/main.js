@@ -4931,12 +4931,12 @@ const loadWeekAvailability = async (service, weekStart) => {
         createElement("article", {
           className: "landing-demo-card",
           children: [
-            createElement("h3", { className: "landing-card-title", text: "Administratör" }),
+            createElement("h3", { className: "landing-card-title", text: "Styrelsemedlem / Fastighetsskötare" }),
             createElement("p", {
               className: "landing-card-text",
-              text: "En styrelsemedlem eller annan administratör kan boka åt andra eller blockera dagar och tider.",
+              text: "En styrelsemedlem eller t.ex. fastighetsskötare kan boka åt andra eller blockera dagar och tider.",
             }),
-            createLandingButton("Logga in som Administratör", adminUserPath, "secondary"),
+            createLandingButton("Logga in som Styrelsemedlem", adminUserPath, "secondary"),
           ],
         })
       );
