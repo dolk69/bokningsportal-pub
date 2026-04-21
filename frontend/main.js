@@ -3847,11 +3847,11 @@ const loadWeekAvailability = async (service, weekStart) => {
         }),
         createElement("div", {
           className: "form-field-hint form-inline-section-hint",
-          text: "Beställ bokningsskärmar till er förening. Pris: 7 000 kr per skärm inklusive moms. Klicka intill så kommer en säljare från embsign AB att kontakta dig!",
+          text: "Beställ bokningsskärmar till er förening. Pris: 7 000 kr per skärm inklusive moms.",
         }),
         createElement("button", {
           className: "primary-button setup-inline-action-button",
-          text: setupState.setupOrderSending ? "Skickar…" : "Kontakta mig",
+          text: setupState.setupOrderSending ? "Skickar…" : "Kontakta mig för ett erbjudande",
           attrs: {
             type: "button",
             disabled: setupState.setupOrderSending || !setupState.data ? "disabled" : null,
@@ -3871,7 +3871,7 @@ const loadWeekAvailability = async (service, weekStart) => {
                   setSetupState({
                     setupOrderSending: false,
                     setupOrderSuccess:
-                      "Beställningen har skickats till info@embsign.se. En säljare kommer kontakta er.",
+                      "Beställningen har skickats till embsign AB. En säljare kommer kontakta er.",
                   });
                 } catch (error) {
                   setSetupState({
@@ -3882,7 +3882,7 @@ const loadWeekAvailability = async (service, weekStart) => {
               },
         }),
         setupState.setupOrderSuccess
-          ? createElement("div", { className: "form-field-hint", text: setupState.setupOrderSuccess })
+          ? createElement("div", { className: "form-status-success", text: setupState.setupOrderSuccess })
           : null,
         setupState.setupOrderError
           ? createElement("div", { className: "form-error", text: setupState.setupOrderError })
