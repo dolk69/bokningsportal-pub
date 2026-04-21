@@ -1,10 +1,10 @@
 // Copyright (C) 2026 embsign AB
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import landingScreen220WebpUrl from "./img/screen-220.webp";
-import landingScreen440WebpUrl from "./img/screen-440.webp";
-import landingScreen220PngUrl from "./img/screen-220.png";
-import landingScreen440PngUrl from "./img/screen-440.png";
+import landingScreen500WebpUrl from "./img/screen-500.webp";
+import landingScreen1000WebpUrl from "./img/screen-1000.webp";
+import landingScreen500PngUrl from "./img/screen-500.png";
+import landingScreen1000PngUrl from "./img/screen-1000.png";
 import { Header } from "./components/Header.js";
 import { ServiceSelection } from "./screens/ServiceSelection.js";
 import { DateSelection } from "./screens/DateSelection.js";
@@ -5084,26 +5084,26 @@ const loadWeekAvailability = async (service, weekStart) => {
                           createElement("source", {
                             attrs: {
                               type: "image/webp",
-                              srcset: `${landingScreen220WebpUrl} 220w, ${landingScreen440WebpUrl} 440w`,
-                              sizes: "(max-width: 600px) 180px, 220px",
+                              srcset: `${landingScreen500WebpUrl} 500w, ${landingScreen1000WebpUrl} 1000w`,
+                              sizes: "(max-width: 600px) min(90vw, 500px), 500px",
                             },
                           }),
                           createElement("source", {
                             attrs: {
                               type: "image/png",
-                              srcset: `${landingScreen220PngUrl} 220w, ${landingScreen440PngUrl} 440w`,
-                              sizes: "(max-width: 600px) 180px, 220px",
+                              srcset: `${landingScreen500PngUrl} 500w, ${landingScreen1000PngUrl} 1000w`,
+                              sizes: "(max-width: 600px) min(90vw, 500px), 500px",
                             },
                           }),
                           createElement("img", {
-                            className: "landing-qr-image",
+                            className: "landing-screen-image",
                             attrs: {
-                              src: landingScreen220PngUrl,
+                              src: landingScreen500PngUrl,
                               alt: "Digital bokningstavla",
                               loading: "lazy",
                               decoding: "async",
-                              width: "220",
-                              height: "165",
+                              width: "500",
+                              height: "350",
                             },
                           }),
                         ],

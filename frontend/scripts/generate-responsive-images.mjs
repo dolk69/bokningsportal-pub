@@ -11,11 +11,20 @@ const imageDir = path.join(frontendRoot, "img");
 async function generate() {
   await mkdir(imageDir, { recursive: true });
   const sourcePath = path.join(imageDir, "screen.png");
-  const variants = [220, 440];
+  const variants = [
+    { width: 500, height: 350 },
+    { width: 1000, height: 700 },
+  ];
 
-  for (const width of variants) {
+  for (const { width, height } of variants) {
     const baseName = `screen-${width}`;
-    const resized = sharp(sourcePath).resize({ width, fit: "inside", withoutEnlargement: true });
+    const resized = sharp(sourcePath).resize({
+      width,
+      height,
+      fit: "contain",
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+      withoutEnlargement: true,
+    });
 
     await resized
       .clone()

@@ -2177,9 +2177,19 @@ body {
   object-fit: contain;
 }
 
+.landing-screen-image {
+  display: block;
+  width: min(500px, 100%);
+  aspect-ratio: 10 / 7;
+  border: none;
+  border-radius: 0;
+  background: #ffffff;
+  object-fit: contain;
+}
+
 .landing-image-caption {
   margin: 0;
-  max-width: 280px;
+  max-width: min(500px, 100%);
   font-size: 13px;
   line-height: 1.35;
   color: #5a6f7a;
