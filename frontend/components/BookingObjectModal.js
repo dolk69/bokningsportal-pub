@@ -272,6 +272,19 @@ export const BookingObjectModal = ({
                   ],
                 }),
               }),
+              field({
+                label: "Info vid bokning",
+                helpText: "Visas i bekräftelsen, vid QR-koden och i bokningsdetaljer.",
+                input: createElement("textarea", {
+                  className: "input",
+                  attrs: {
+                    rows: "4",
+                    value: form.bookingConfirmationMessage || "",
+                    "data-focus-key": "bookingConfirmationMessage",
+                  },
+                  onInput: (event) => onChange("bookingConfirmationMessage", event.target.value),
+                }),
+              }),
               createElement("div", {
                 className: "form-inline-section-title",
                 text: "Tidsfönster",
@@ -491,34 +504,89 @@ export const BookingObjectModal = ({
               }),
               createElement("div", {
                 className: "form-field-hint form-inline-section-hint",
-                text: "Sätt pris för vardag och helg i kronor.",
+                text: "Sätt pris per veckodag i kronor.",
               }),
-              fieldGroup({
-                label: "Pris",
-                helpText: "",
+              createElement("div", {
+                className: "form-field form-day-price-section",
                 children: [
+                  createElement("div", { className: "form-label", text: "Pris per dag (kr)" }),
                   createElement("div", {
-                    className: "form-stack form-group",
+                    className: "form-group form-day-price-grid",
                     children: [
                       createElement("label", {
-                        className: "form-subfield",
+                        className: "form-subfield day-price-field",
                         children: [
-                          createElement("span", { text: "Pris per bokning på vardag (kr)" }),
+                          createElement("span", { text: "Må" }),
                           createElement("input", {
                             className: "input",
-                            attrs: { value: form.priceWeekday || "", "data-focus-key": "priceWeekday" },
-                            onInput: (event) => onChange("priceWeekday", event.target.value),
+                            attrs: { value: form.priceMonday || "", "data-focus-key": "priceMonday" },
+                            onInput: (event) => onChange("priceMonday", event.target.value),
                           }),
                         ],
                       }),
                       createElement("label", {
-                        className: "form-subfield",
+                        className: "form-subfield day-price-field",
                         children: [
-                          createElement("span", { text: "Pris per bokning på helg (kr)" }),
+                          createElement("span", { text: "Ti" }),
                           createElement("input", {
                             className: "input",
-                            attrs: { value: form.priceWeekend || "", "data-focus-key": "priceWeekend" },
-                            onInput: (event) => onChange("priceWeekend", event.target.value),
+                            attrs: { value: form.priceTuesday || "", "data-focus-key": "priceTuesday" },
+                            onInput: (event) => onChange("priceTuesday", event.target.value),
+                          }),
+                        ],
+                      }),
+                      createElement("label", {
+                        className: "form-subfield day-price-field",
+                        children: [
+                          createElement("span", { text: "On" }),
+                          createElement("input", {
+                            className: "input",
+                            attrs: { value: form.priceWednesday || "", "data-focus-key": "priceWednesday" },
+                            onInput: (event) => onChange("priceWednesday", event.target.value),
+                          }),
+                        ],
+                      }),
+                      createElement("label", {
+                        className: "form-subfield day-price-field",
+                        children: [
+                          createElement("span", { text: "To" }),
+                          createElement("input", {
+                            className: "input",
+                            attrs: { value: form.priceThursday || "", "data-focus-key": "priceThursday" },
+                            onInput: (event) => onChange("priceThursday", event.target.value),
+                          }),
+                        ],
+                      }),
+                      createElement("label", {
+                        className: "form-subfield day-price-field",
+                        children: [
+                          createElement("span", { text: "Fr" }),
+                          createElement("input", {
+                            className: "input",
+                            attrs: { value: form.priceFriday || "", "data-focus-key": "priceFriday" },
+                            onInput: (event) => onChange("priceFriday", event.target.value),
+                          }),
+                        ],
+                      }),
+                      createElement("label", {
+                        className: "form-subfield day-price-field",
+                        children: [
+                          createElement("span", { text: "Lö" }),
+                          createElement("input", {
+                            className: "input",
+                            attrs: { value: form.priceSaturday || "", "data-focus-key": "priceSaturday" },
+                            onInput: (event) => onChange("priceSaturday", event.target.value),
+                          }),
+                        ],
+                      }),
+                      createElement("label", {
+                        className: "form-subfield day-price-field",
+                        children: [
+                          createElement("span", { text: "Sö" }),
+                          createElement("input", {
+                            className: "input",
+                            attrs: { value: form.priceSunday || "", "data-focus-key": "priceSunday" },
+                            onInput: (event) => onChange("priceSunday", event.target.value),
                           }),
                         ],
                       }),

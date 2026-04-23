@@ -10,12 +10,18 @@ const escapeIcsText = (value) =>
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 
-const toIcsDateTime = (isoValue) => {
+const toIcsFloatingDateTime = (isoValue) => {
   const date = new Date(isoValue);
   if (Number.isNaN(date.getTime())) {
     return null;
   }
-  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 };
 
 const getCalendarFileName = (eventData) => {
@@ -32,8 +38,8 @@ export const buildCalendarIcs = (eventData) => {
   if (!eventData?.title || !eventData?.startTime || !eventData?.endTime) {
     return null;
   }
-  const dtStart = toIcsDateTime(eventData.startTime);
-  const dtEnd = toIcsDateTime(eventData.endTime);
+  const dtStart = toIcsFloatingDateTime(eventData.startTime);
+  const dtEnd = toIcsFloatingDateTime(eventData.endTime);
   if (!dtStart || !dtEnd) {
     return null;
   }

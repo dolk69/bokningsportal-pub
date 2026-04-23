@@ -18,14 +18,22 @@ export const BookingSummary = ({ summary }) => {
 
   return createElement("div", {
     className: "booking-summary card",
-    children: rows.map(([label, value]) =>
-      createElement("div", {
-        className: "summary-row",
-        children: [
-          createElement("span", { className: "summary-label", text: label }),
-          createElement("span", { text: value }),
-        ],
-      })
-    ),
+    children: [
+      ...rows.map(([label, value]) =>
+        createElement("div", {
+          className: "summary-row",
+          children: [
+            createElement("span", { className: "summary-label", text: label }),
+            createElement("span", { text: value }),
+          ],
+        })
+      ),
+      summary.bookingMessage
+        ? createElement("div", {
+            className: "booking-info-highlight",
+            text: summary.bookingMessage,
+          })
+        : null,
+    ].filter(Boolean),
   });
 };

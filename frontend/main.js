@@ -593,8 +593,14 @@ if (routePath.startsWith("/admin/")) {
       windowMax: "",
       maxBookings: DEFAULT_MAX_BOOKINGS,
       groupId: "",
-      priceWeekday: "",
-      priceWeekend: "",
+      bookingConfirmationMessage: "",
+      priceMonday: "",
+      priceTuesday: "",
+      priceWednesday: "",
+      priceThursday: "",
+      priceFriday: "",
+      priceSaturday: "",
+      priceSunday: "",
       status: "Aktiv",
       allowHouses: [],
       allowGroups: [],
@@ -629,8 +635,14 @@ if (routePath.startsWith("/admin/")) {
             windowMax: item.windowMax,
             maxBookings: item.maxBookings,
             groupId: item.groupId || "",
-            priceWeekday: item.priceWeekday,
-            priceWeekend: item.priceWeekend,
+            bookingConfirmationMessage: item.bookingConfirmationMessage || "",
+            priceMonday: item.priceMonday,
+            priceTuesday: item.priceTuesday,
+            priceWednesday: item.priceWednesday,
+            priceThursday: item.priceThursday,
+            priceFriday: item.priceFriday,
+            priceSaturday: item.priceSaturday,
+            priceSunday: item.priceSunday,
             status: item.status,
             allowHouses: item.allowHouses || [],
             allowGroups: item.allowGroups || [],
@@ -651,8 +663,14 @@ if (routePath.startsWith("/admin/")) {
             windowMax: "",
             maxBookings: DEFAULT_MAX_BOOKINGS,
             groupId: "",
-            priceWeekday: "",
-            priceWeekend: "",
+            bookingConfirmationMessage: "",
+            priceMonday: "",
+            priceTuesday: "",
+            priceWednesday: "",
+            priceThursday: "",
+            priceFriday: "",
+            priceSaturday: "",
+            priceSunday: "",
             status: "Aktiv",
             allowHouses: [],
             allowGroups: [],
@@ -2094,6 +2112,8 @@ const store = createStore({
   dataLoading: false,
   cancelModalOpen: false,
   cancelBooking: null,
+  bookingCalendarModalOpen: false,
+  selectedOverviewBooking: null,
   cancelledDayIds: [],
   cancelledSlotIds: [],
   qrWarningOpen: false,
@@ -2286,7 +2306,15 @@ const buildFullDayDateRange = (date, service) => {
   };
 };
 
-const buildCancelBooking = ({ date, timeLabel, serviceName, sourceId, bookingId = null, cancelType = "booking" }) => ({
+const buildCancelBooking = ({
+  date,
+  timeLabel,
+  serviceName,
+  bookingMessage = "",
+  sourceId,
+  bookingId = null,
+  cancelType = "booking",
+}) => ({
   id: sourceId,
   bookingId,
   cancelType,
@@ -2294,8 +2322,27 @@ const buildCancelBooking = ({ date, timeLabel, serviceName, sourceId, bookingId 
   dayLabel: formatDayLabel(date),
   dateLabel: formatDateLabel(date),
   timeLabel,
+  bookingMessage,
   status: "mine",
 });
+
+const getServicePriceForDate = (service, date) => {
+  if (!service || !date) {
+    return 0;
+  }
+  const keyByDay = [
+    "priceSunday",
+    "priceMonday",
+    "priceTuesday",
+    "priceWednesday",
+    "priceThursday",
+    "priceFriday",
+    "priceSaturday",
+  ];
+  const key = keyByDay[date.getDay()] || "priceMonday";
+  const value = Number(service[key] || 0);
+  return Number.isFinite(value) ? value : 0;
+};
 
 const buildBookingRangeForState = (state) => {
   if (state.selectedSlot?.startTime && state.selectedSlot?.endTime) {
@@ -2359,11 +2406,16 @@ const buildConfirmationCalendarEvent = (state, range) => {
   if (!state.selectedService || !state.selectedDate?.date || !range?.startTime || !range?.endTime) {
     return null;
   }
+  const message = String(state.selectedService.bookingConfirmationMessage || "").trim();
+  const descriptionLines = [`${formatDayLabel(state.selectedDate.date)} ${formatDateLabel(state.selectedDate.date)} ${range.timeLabel}`];
+  if (message) {
+    descriptionLines.push("", message);
+  }
   return {
     title: `Bokning: ${state.selectedService.name}`,
     startTime: range.startTime,
     endTime: range.endTime,
-    description: `${formatDayLabel(state.selectedDate.date)} ${formatDateLabel(state.selectedDate.date)} ${range.timeLabel}`,
+    description: descriptionLines.join("\n"),
   };
 };
 
@@ -2429,14 +2481,20 @@ const applyBootstrapData = (bootstrap) => {
         nextAvailableRaw: service.next_available_start || service.next_available || "",
         nextAvailable: formatNextAvailableLabel(service.next_available, service.booking_type),
         priceText: (() => {
-          const weekdayCents = Number(service.price_weekday_cents || 0);
-          const weekendCents = Number(service.price_weekend_cents || 0);
-          if (weekdayCents <= 0 && weekendCents <= 0) return "";
-          const weekday = Math.round(weekdayCents / 100);
-          const weekend = Math.round(weekendCents / 100);
-          if (weekday === weekend) return `Debiteras: ${weekday} kr`;
-          const low = Math.min(weekday, weekend);
-          const high = Math.max(weekday, weekend);
+          const dailyCents = [
+            Number(service.price_monday_cents ?? service.price_weekday_cents ?? 0),
+            Number(service.price_tuesday_cents ?? service.price_weekday_cents ?? 0),
+            Number(service.price_wednesday_cents ?? service.price_weekday_cents ?? 0),
+            Number(service.price_thursday_cents ?? service.price_weekday_cents ?? 0),
+            Number(service.price_friday_cents ?? service.price_weekday_cents ?? 0),
+            Number(service.price_saturday_cents ?? service.price_weekend_cents ?? 0),
+            Number(service.price_sunday_cents ?? service.price_weekend_cents ?? 0),
+          ];
+          if (dailyCents.every((value) => value <= 0)) return "";
+          const dailyKr = dailyCents.map((value) => Math.round(value / 100));
+          const low = Math.min(...dailyKr);
+          const high = Math.max(...dailyKr);
+          if (low === high) return `Debiteras: ${low} kr`;
           return `Debiteras: ${low}-${high} kr`;
         })(),
         bookingType: service.booking_type,
@@ -2447,12 +2505,18 @@ const applyBootstrapData = (bootstrap) => {
         timeSlotEndTime: /^\d{2}:\d{2}$/.test(service.time_slot_end_time || "") ? service.time_slot_end_time : "20:00",
         windowMin: Number(service.window_min_days),
         windowMax: Number(service.window_max_days),
+        bookingConfirmationMessage: service.booking_confirmation_message || "",
         maxBookings: Number(service.max_bookings_limit || service.max_bookings || 0),
         maxBookingsLimit: Number(service.max_bookings_limit || service.max_bookings || 0),
         maxBookingsScope: service.max_bookings_scope || null,
         bookingGroupId: service.group_id || "",
-        priceWeekday: service.price_weekday_cents || 0,
-        priceWeekend: service.price_weekend_cents || 0,
+        priceMonday: Number(service.price_monday_cents ?? service.price_weekday_cents ?? 0),
+        priceTuesday: Number(service.price_tuesday_cents ?? service.price_weekday_cents ?? 0),
+        priceWednesday: Number(service.price_wednesday_cents ?? service.price_weekday_cents ?? 0),
+        priceThursday: Number(service.price_thursday_cents ?? service.price_weekday_cents ?? 0),
+        priceFriday: Number(service.price_friday_cents ?? service.price_weekday_cents ?? 0),
+        priceSaturday: Number(service.price_saturday_cents ?? service.price_weekend_cents ?? 0),
+        priceSunday: Number(service.price_sunday_cents ?? service.price_weekend_cents ?? 0),
       }))
     : [];
 
@@ -2466,6 +2530,7 @@ const applyBootstrapData = (bootstrap) => {
           startTime: booking.start_time || "",
           endTime: booking.end_time || "",
           serviceName: booking.service_name,
+          bookingMessage: booking.booking_confirmation_message || "",
           dayLabel: date
             .toLocaleDateString("sv-SE", { weekday: "short" })
             .replace(".", "")
@@ -2710,8 +2775,27 @@ const loadWeekAvailability = async (service, weekStart) => {
       bookings: state.bookings,
       cancelModalOpen: state.cancelModalOpen,
       cancelBooking: state.cancelBooking,
-      onOpenCancel: (booking) =>
-        store.setState({ cancelModalOpen: true, cancelBooking: booking }),
+      bookingCalendarModalOpen: state.bookingCalendarModalOpen,
+      selectedOverviewBooking: state.selectedOverviewBooking,
+      onOpenBookingCalendar: (booking) =>
+        store.setState({
+          bookingCalendarModalOpen: true,
+          selectedOverviewBooking: booking,
+        }),
+      onCloseBookingCalendar: () =>
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+        }),
+      onCancelFromBookingCalendar: () => {
+        const selectedBooking = store.getState().selectedOverviewBooking;
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+          cancelModalOpen: true,
+          cancelBooking: selectedBooking || null,
+        });
+      },
       onCloseCancel: () => store.setState({ cancelModalOpen: false, cancelBooking: null }),
       onConfirmCancel: async () => {
         const target = store.getState().cancelBooking;
@@ -2723,6 +2807,8 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookings: bookingsData.filter(isBookingCurrentOrFuture),
           cancelModalOpen: false,
           cancelBooking: null,
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
         });
       },
       qrWarningOpen: state.qrWarningOpen,
@@ -2773,8 +2859,7 @@ const loadWeekAvailability = async (service, weekStart) => {
       if (statusPatchedDay.status === "outside") {
         return statusPatchedDay;
       }
-      const isWeekend = [0, 6].includes(statusPatchedDay.date.getDay());
-      const priceCents = isWeekend ? Number(state.selectedService?.priceWeekend || 0) : Number(state.selectedService?.priceWeekday || 0);
+      const priceCents = getServicePriceForDate(state.selectedService, statusPatchedDay.date) * 100;
       return {
         ...statusPatchedDay,
         bookedByApartmentId: isAdminUser ? statusPatchedDay.bookedByApartmentId || null : null,
@@ -2790,13 +2875,28 @@ const loadWeekAvailability = async (service, weekStart) => {
       expectedDays: getExpectedMonthDays(year, monthIndex),
       selectedDateId: state.selectedDate?.id,
       onSelect: (day) => {
-        if (day.status === "mine" || (isAdminUser && day.status === "booked") || (isAdminUser && day.status === "blocked")) {
+        if (day.status === "mine") {
+          store.setState({
+            bookingCalendarModalOpen: true,
+            selectedOverviewBooking: buildCancelBooking({
+              date: day.date,
+              timeLabel: getFullDayTimeLabel(state.selectedService),
+              serviceName: state.selectedService?.name,
+              bookingMessage: state.selectedService?.bookingConfirmationMessage || "",
+              sourceId: day.id,
+              bookingId: day.bookingId || null,
+            }),
+          });
+          return;
+        }
+        if ((isAdminUser && day.status === "booked") || (isAdminUser && day.status === "blocked")) {
           store.setState({
             cancelModalOpen: true,
             cancelBooking: buildCancelBooking({
               date: day.date,
               timeLabel: getFullDayTimeLabel(state.selectedService),
               serviceName: state.selectedService?.name,
+              bookingMessage: state.selectedService?.bookingConfirmationMessage || "",
               sourceId: day.id,
               bookingId: day.bookingId || day.blockId || null,
               cancelType: day.status === "blocked" ? "block" : "booking",
@@ -2836,6 +2936,22 @@ const loadWeekAvailability = async (service, weekStart) => {
       cancelModalOpen: state.cancelModalOpen,
       cancelBooking: state.cancelBooking,
       onCloseCancel: () => store.setState({ cancelModalOpen: false, cancelBooking: null }),
+      bookingCalendarModalOpen: state.bookingCalendarModalOpen,
+      selectedOverviewBooking: state.selectedOverviewBooking,
+      onCloseBookingCalendar: () =>
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+        }),
+      onCancelFromBookingCalendar: () => {
+        const selectedBooking = store.getState().selectedOverviewBooking;
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+          cancelModalOpen: true,
+          cancelBooking: selectedBooking || null,
+        });
+      },
       onConfirmCancel: async () => {
         const target = store.getState().cancelBooking;
         const bookingId = target?.bookingId || findBookingId(store.getState().bookings, target);
@@ -2848,9 +2964,12 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookings: bookingsData.filter(isBookingCurrentOrFuture),
           cancelModalOpen: false,
           cancelBooking: null,
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
         });
         loadMonthAvailability(state.selectedService, year, monthIndex);
       },
+      isKioskMode: isKioskRoute,
       isAdminView: isAdminUser,
     });
 
@@ -2895,13 +3014,28 @@ const loadWeekAvailability = async (service, weekStart) => {
       expectedWeekSlots: state.availabilityWeekLoadingPlaceholder || expectedWeekSlots,
       selectedSlotId: state.selectedSlot?.id,
       onSelect: (slot) => {
-        if (slot.status === "mine" || (isAdminUser && slot.status === "booked") || (isAdminUser && slot.status === "blocked")) {
+        if (slot.status === "mine") {
+          store.setState({
+            bookingCalendarModalOpen: true,
+            selectedOverviewBooking: buildCancelBooking({
+              date: slot.date,
+              timeLabel: slot.label,
+              serviceName: state.selectedService?.name,
+              bookingMessage: state.selectedService?.bookingConfirmationMessage || "",
+              sourceId: slot.id,
+              bookingId: slot.bookingId || null,
+            }),
+          });
+          return;
+        }
+        if ((isAdminUser && slot.status === "booked") || (isAdminUser && slot.status === "blocked")) {
           store.setState({
             cancelModalOpen: true,
             cancelBooking: buildCancelBooking({
               date: slot.date,
               timeLabel: slot.label,
               serviceName: state.selectedService?.name,
+              bookingMessage: state.selectedService?.bookingConfirmationMessage || "",
               sourceId: slot.id,
               bookingId: slot.bookingId || slot.blockId || null,
               cancelType: slot.status === "blocked" ? "block" : "booking",
@@ -2945,6 +3079,22 @@ const loadWeekAvailability = async (service, weekStart) => {
       cancelModalOpen: state.cancelModalOpen,
       cancelBooking: state.cancelBooking,
       onCloseCancel: () => store.setState({ cancelModalOpen: false, cancelBooking: null }),
+      bookingCalendarModalOpen: state.bookingCalendarModalOpen,
+      selectedOverviewBooking: state.selectedOverviewBooking,
+      onCloseBookingCalendar: () =>
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+        }),
+      onCancelFromBookingCalendar: () => {
+        const selectedBooking = store.getState().selectedOverviewBooking;
+        store.setState({
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
+          cancelModalOpen: true,
+          cancelBooking: selectedBooking || null,
+        });
+      },
       onConfirmCancel: async () => {
         const target = store.getState().cancelBooking;
         const bookingId = target?.bookingId || findBookingId(store.getState().bookings, target);
@@ -2957,9 +3107,12 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookings: bookingsData.filter(isBookingCurrentOrFuture),
           cancelModalOpen: false,
           cancelBooking: null,
+          bookingCalendarModalOpen: false,
+          selectedOverviewBooking: null,
         });
         loadWeekAvailability(state.selectedService, state.weekCursor);
       },
+      isKioskMode: isKioskRoute,
       isAdminView: isAdminUser,
     });
 
@@ -3224,8 +3377,14 @@ const loadWeekAvailability = async (service, weekStart) => {
       windowMax: "30",
       maxBookings: DEFAULT_MAX_BOOKINGS,
       groupId: "",
-      priceWeekday: "",
-      priceWeekend: "",
+      bookingConfirmationMessage: "",
+      priceMonday: "",
+      priceTuesday: "",
+      priceWednesday: "",
+      priceThursday: "",
+      priceFriday: "",
+      priceSaturday: "",
+      priceSunday: "",
       status: "Aktiv",
       allowHouses: [],
       allowGroups: [],
@@ -3530,8 +3689,14 @@ const loadWeekAvailability = async (service, weekStart) => {
             windowMax: item.windowMax,
             maxBookings: item.maxBookings,
             groupId: item.groupId || "",
-            priceWeekday: item.priceWeekday,
-            priceWeekend: item.priceWeekend,
+            bookingConfirmationMessage: item.bookingConfirmationMessage || "",
+            priceMonday: item.priceMonday,
+            priceTuesday: item.priceTuesday,
+            priceWednesday: item.priceWednesday,
+            priceThursday: item.priceThursday,
+            priceFriday: item.priceFriday,
+            priceSaturday: item.priceSaturday,
+            priceSunday: item.priceSunday,
             status: item.status,
             allowHouses: item.allowHouses || [],
             allowGroups: item.allowGroups || [],
@@ -3552,8 +3717,14 @@ const loadWeekAvailability = async (service, weekStart) => {
             windowMax: "30",
             maxBookings: DEFAULT_MAX_BOOKINGS,
             groupId: "",
-            priceWeekday: "",
-            priceWeekend: "",
+            bookingConfirmationMessage: "",
+            priceMonday: "",
+            priceTuesday: "",
+            priceWednesday: "",
+            priceThursday: "",
+            priceFriday: "",
+            priceSaturday: "",
+            priceSunday: "",
             status: "Aktiv",
             allowHouses: [],
             allowGroups: [],

@@ -4,6 +4,7 @@
 import { createElement } from "../hooks/dom.js";
 import { ServiceGrid } from "../components/ServiceGrid.js";
 import { CancelBookingModal } from "../components/CancelBookingModal.js";
+import { BookingCalendarModal } from "../components/BookingCalendarModal.js";
 
 const renderSkeleton = () =>
   createElement("div", {
@@ -21,9 +22,13 @@ export const ServiceSelection = ({
   bookings,
   cancelModalOpen,
   cancelBooking,
-  onOpenCancel,
   onCloseCancel,
   onConfirmCancel,
+  bookingCalendarModalOpen,
+  selectedOverviewBooking,
+  onOpenBookingCalendar,
+  onCloseBookingCalendar,
+  onCancelFromBookingCalendar,
   qrWarningOpen,
   qrGenerating,
   qrError,
@@ -69,7 +74,7 @@ export const ServiceSelection = ({
             children: bookings.map((booking) =>
               createElement("div", {
                 className: `booking-card ${booking.status} ${booking.status === "mine" ? "clickable" : ""}`.trim(),
-                onClick: booking.status === "mine" ? () => onOpenCancel(booking) : null,
+                onClick: booking.status === "mine" ? () => onOpenBookingCalendar(booking) : null,
                 children: [
                   createElement("div", { className: "booking-card-title", text: booking.serviceName }),
                   createElement("div", {
@@ -166,6 +171,14 @@ export const ServiceSelection = ({
       })
     : null;
 
+  const bookingCalendarModal = BookingCalendarModal({
+    isOpen: bookingCalendarModalOpen,
+    booking: selectedOverviewBooking,
+    isKioskMode,
+    onClose: onCloseBookingCalendar,
+    onCancel: onCancelFromBookingCalendar,
+  });
+
   const qrModal = qrModalOpen
     ? createElement("div", {
         className: "modal-overlay",
@@ -216,6 +229,6 @@ export const ServiceSelection = ({
 
   return createElement("section", {
     className: "screen",
-    children: [header, content, bookingsSection, warningModal, cancelModal, qrModal].filter(Boolean),
+    children: [header, content, bookingsSection, warningModal, cancelModal, bookingCalendarModal, qrModal].filter(Boolean),
   });
 };

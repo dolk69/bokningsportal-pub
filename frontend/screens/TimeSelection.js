@@ -4,6 +4,7 @@
 import { createElement } from "../hooks/dom.js";
 import { TimeslotButton } from "../components/TimeslotButton.js";
 import { CancelBookingModal } from "../components/CancelBookingModal.js";
+import { BookingCalendarModal } from "../components/BookingCalendarModal.js";
 
 const legend = () =>
   createElement("div", {
@@ -42,6 +43,11 @@ export const TimeSelection = ({
   cancelBooking,
   onCloseCancel,
   onConfirmCancel,
+  bookingCalendarModalOpen,
+  selectedOverviewBooking,
+  onCloseBookingCalendar,
+  onCancelFromBookingCalendar,
+  isKioskMode = false,
   isAdminView = false,
 }) => {
   const headingText = serviceName?.trim()
@@ -144,8 +150,16 @@ export const TimeSelection = ({
       })
     : null;
 
+  const bookingCalendarModal = BookingCalendarModal({
+    isOpen: bookingCalendarModalOpen,
+    booking: selectedOverviewBooking,
+    isKioskMode,
+    onClose: onCloseBookingCalendar,
+    onCancel: onCancelFromBookingCalendar,
+  });
+
   return createElement("section", {
     className: "screen booking-screen",
-    children: [content, legend(), cancelModal].filter(Boolean),
+    children: [content, legend(), cancelModal, bookingCalendarModal].filter(Boolean),
   });
 };

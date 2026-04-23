@@ -15,21 +15,25 @@ const formatDuration = (service) => {
 };
 
 const formatPriceText = (service) => {
-  const weekdayCents = Number(service.price_weekday_cents);
-  const weekendCents = Number(service.price_weekend_cents);
-  const hasAnyPrice = weekdayCents > 0 || weekendCents > 0;
-  if (!hasAnyPrice) {
+  const dailyCents = [
+    Number(service.price_monday_cents ?? service.price_weekday_cents ?? 0),
+    Number(service.price_tuesday_cents ?? service.price_weekday_cents ?? 0),
+    Number(service.price_wednesday_cents ?? service.price_weekday_cents ?? 0),
+    Number(service.price_thursday_cents ?? service.price_weekday_cents ?? 0),
+    Number(service.price_friday_cents ?? service.price_weekday_cents ?? 0),
+    Number(service.price_saturday_cents ?? service.price_weekend_cents ?? 0),
+    Number(service.price_sunday_cents ?? service.price_weekend_cents ?? 0),
+  ];
+  if (dailyCents.every((value) => value <= 0)) {
     return "";
   }
 
-  const weekday = Math.round(weekdayCents / 100);
-  const weekend = Math.round(weekendCents / 100);
-  if (weekday === weekend) {
-    return `Debiteras: ${weekday} kr`;
+  const dailyKr = dailyCents.map((value) => Math.round(value / 100));
+  const low = Math.min(...dailyKr);
+  const high = Math.max(...dailyKr);
+  if (low === high) {
+    return `Debiteras: ${low} kr`;
   }
-
-  const low = Math.min(weekday, weekend);
-  const high = Math.max(weekday, weekend);
   return `Debiteras: ${low}-${high} kr`;
 };
 
@@ -50,11 +54,17 @@ export const getServices = async () => {
     timeSlotEndTime: service.time_slot_end_time,
     windowMin: Number(service.window_min_days),
     windowMax: Number(service.window_max_days),
+    bookingConfirmationMessage: service.booking_confirmation_message || "",
     maxBookings: Number(service.max_bookings_limit ?? service.max_bookings),
     maxBookingsLimit: Number(service.max_bookings_limit ?? service.max_bookings),
     maxBookingsReached: service.max_bookings_reached === true,
     bookingGroupId: service.group_id || "",
-    priceWeekday: Number(service.price_weekday_cents),
-    priceWeekend: Number(service.price_weekend_cents),
+    priceMonday: Number(service.price_monday_cents ?? service.price_weekday_cents ?? 0),
+    priceTuesday: Number(service.price_tuesday_cents ?? service.price_weekday_cents ?? 0),
+    priceWednesday: Number(service.price_wednesday_cents ?? service.price_weekday_cents ?? 0),
+    priceThursday: Number(service.price_thursday_cents ?? service.price_weekday_cents ?? 0),
+    priceFriday: Number(service.price_friday_cents ?? service.price_weekday_cents ?? 0),
+    priceSaturday: Number(service.price_saturday_cents ?? service.price_weekend_cents ?? 0),
+    priceSunday: Number(service.price_sunday_cents ?? service.price_weekend_cents ?? 0),
   }));
 };

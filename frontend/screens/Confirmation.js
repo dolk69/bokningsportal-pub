@@ -4,7 +4,7 @@
 import { createElement } from "../hooks/dom.js";
 import { BookingSummary } from "../components/BookingSummary.js";
 
-const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl }) => {
+const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl, bookingMessage }) => {
   if (!calendarDownloadUrl) {
     return null;
   }
@@ -13,6 +13,12 @@ const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl }
     return createElement("div", {
       className: "booking-complete-content confirmation-calendar-action",
       children: [
+        bookingMessage
+          ? createElement("div", {
+              className: "booking-info-highlight",
+              text: bookingMessage,
+            })
+          : null,
         createElement("div", {
           className: "screen-subtitle",
           text: "Skanna QR-koden för att lägga till bokningen i din mobilkalender.",
@@ -31,6 +37,12 @@ const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl }
   return createElement("div", {
     className: "booking-complete-content confirmation-calendar-action",
     children: [
+      bookingMessage
+        ? createElement("div", {
+            className: "booking-info-highlight",
+            text: bookingMessage,
+          })
+        : null,
       createElement("div", {
         className: "calendar-download-actions",
         children: [
@@ -101,6 +113,7 @@ export const Confirmation = ({
       isKioskMode,
       calendarQrImageUrl,
       calendarDownloadUrl,
+      bookingMessage: summary?.bookingMessage || "",
     });
   } else {
     content = BookingSummary({ summary });

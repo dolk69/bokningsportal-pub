@@ -43,7 +43,7 @@ cd backend
 npm run db:local
 ```
 
-Alternativt kör SQL-filerna mot din lokala D1-instans med `wrangler d1 execute …` och `--file` mot `db/migrations/001_initial_schema.sql`, `002_tenant_last_changed.sql` och `db/seed.sql` (se `backend/package.json` skript `db:local`).
+Alternativt kör SQL-filerna mot din lokala D1-instans med `wrangler d1 execute …` och `--file` mot `db/migrations/001_initial_schema.sql`, `002_tenant_last_changed.sql`, `003_booking_object_info_and_daily_prices.sql` och `db/seed.sql` (se `backend/package.json` skript `db:local`).
 
 ## Deploy till produktion (översikt)
 

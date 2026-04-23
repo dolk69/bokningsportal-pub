@@ -16,7 +16,7 @@ export const BookingObjectsTable = ({ bookingObjects, onEdit, onCopy, onDelete }
               createElement("th", { text: "Slot" }),
               createElement("th", { text: "Bokningsfönster" }),
               createElement("th", { text: "Max" }),
-              createElement("th", { text: "Pris (V/H)" }),
+              createElement("th", { text: "Prisintervall" }),
               createElement("th", { text: "Status" }),
               createElement("th", { text: "" }),
             ],
@@ -32,7 +32,24 @@ export const BookingObjectsTable = ({ bookingObjects, onEdit, onCopy, onDelete }
               createElement("td", { text: item.slotDisplay || item.slotDuration }),
               createElement("td", { text: `${item.windowMin}–${item.windowMax}` }),
               createElement("td", { text: item.maxBookings }),
-              createElement("td", { text: `${item.priceWeekday} / ${item.priceWeekend}` }),
+              createElement("td", {
+                text: (() => {
+                  const prices = [
+                    item.priceMonday,
+                    item.priceTuesday,
+                    item.priceWednesday,
+                    item.priceThursday,
+                    item.priceFriday,
+                    item.priceSaturday,
+                    item.priceSunday,
+                  ]
+                    .map((value) => Number(value || 0))
+                    .filter((value) => Number.isFinite(value));
+                  const min = prices.length ? Math.min(...prices) : 0;
+                  const max = prices.length ? Math.max(...prices) : 0;
+                  return min === max ? `${min} kr` : `${min}-${max} kr`;
+                })(),
+              }),
               createElement("td", {
                 children: [
                   createElement("span", {

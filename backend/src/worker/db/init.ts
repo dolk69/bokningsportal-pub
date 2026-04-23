@@ -3,6 +3,7 @@
 
 import migration001 from "../../../../db/migrations/001_initial_schema.sql";
 import migration002 from "../../../../db/migrations/002_tenant_last_changed.sql";
+import migration003 from "../../../../db/migrations/003_booking_object_info_and_daily_prices.sql";
 import seedSql from "../../../../db/seed.sql";
 import { D1Database } from "../types.js";
 
@@ -78,6 +79,14 @@ export const initDb = async (db: D1Database) => {
       .first();
     if (!tenantLastChangedColumn) {
       await db.exec(migration002);
+    }
+
+    const bookingConfirmationMessageColumn = await db
+      .prepare("SELECT name FROM pragma_table_info('booking_objects') WHERE name = ?")
+      .bind("booking_confirmation_message")
+      .first();
+    if (!bookingConfirmationMessageColumn) {
+      await db.exec(migration003);
     }
 
     const demoTenantExists = await db.prepare("SELECT id FROM tenants WHERE id = ?").bind("demo-brf").first();

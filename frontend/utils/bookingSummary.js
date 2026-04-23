@@ -36,5 +36,6 @@ export const createBookingSummary = ({ service, date, timeslot }) => {
     duration: service.duration,
     price: getPriceLabel(service),
     resource: service.name,
+    bookingMessage: String(service.bookingConfirmationMessage || "").trim(),
   };
 };

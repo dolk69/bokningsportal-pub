@@ -546,6 +546,47 @@ body {
   background: var(--surface-alt);
 }
 
+.form-day-price-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.day-price-field {
+  gap: 4px;
+  min-width: 0;
+}
+
+.form-day-price-section {
+  margin-top: 2px;
+}
+
+.day-price-field > span {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.day-price-field .input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  padding: 8px 6px;
+}
+
+@media (max-width: 1100px) {
+  .form-day-price-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .form-day-price-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .form-group-title {
   font-size: 14px;
   font-weight: 700;
@@ -1153,6 +1194,11 @@ body {
   margin-right: auto;
 }
 
+.modal .confirmation-qr-image {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .modal .booking-download-link {
   display: block;
   text-align: center;
@@ -1556,6 +1602,18 @@ body {
 
 .summary-label {
   color: var(--muted);
+}
+
+.booking-info-highlight {
+  border: 1px solid #7c2d12;
+  background: #ffedd5;
+  color: #7c2d12;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .footer-nav {

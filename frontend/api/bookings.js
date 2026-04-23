@@ -22,6 +22,7 @@ export const getCurrentBookings = async () => {
       startTime: booking.start_time || "",
       endTime: booking.end_time || "",
       serviceName: booking.service_name,
+      bookingMessage: booking.booking_confirmation_message || "",
       dayLabel: formatDayLabel(date),
       dateLabel: formatDateLabel(date),
       timeLabel: booking.time_label,

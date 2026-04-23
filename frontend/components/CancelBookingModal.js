@@ -35,6 +35,12 @@ export const CancelBookingModal = ({ booking, onClose, onConfirm }) => {
                 className: "booking-card-time",
                 children: [createElement("strong", { text: booking.timeLabel })],
               }),
+              booking.bookingMessage
+                ? createElement("div", {
+                    className: "booking-info-highlight",
+                    text: booking.bookingMessage,
+                  })
+                : null,
             ],
           }),
           createElement("div", {

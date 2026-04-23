@@ -155,15 +155,30 @@ const escapeIcsText = (value: string) =>
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 
-const toIcsUtcDateTime = (isoValue: string) => {
+const toIcsFloatingDateTime = (isoValue: string) => {
   const date = new Date(isoValue);
   if (Number.isNaN(date.getTime())) {
     return null;
   }
-  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 };
 
 const toIcsStampNow = () => new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+
+const buildBookingIcsDescription = (booking: { apartmentId: string; bookingConfirmationMessage?: string | null }) => {
+  const lines = [`Lägenhet ${booking.apartmentId}`];
+  const bookingMessage = String(booking.bookingConfirmationMessage || "").trim();
+  if (bookingMessage) {
+    lines.push("", bookingMessage);
+  }
+  return lines.join("\n");
+};
 
 const buildBookingIcs = (booking: {
   id: string;
@@ -171,15 +186,16 @@ const buildBookingIcs = (booking: {
   endTime: string;
   serviceName: string;
   apartmentId: string;
+  bookingConfirmationMessage?: string | null;
 }) => {
-  const dtStart = toIcsUtcDateTime(booking.startTime);
-  const dtEnd = toIcsUtcDateTime(booking.endTime);
+  const dtStart = toIcsFloatingDateTime(booking.startTime);
+  const dtEnd = toIcsFloatingDateTime(booking.endTime);
   if (!dtStart || !dtEnd) {
     return null;
   }
   const uid = `${booking.id}@brf-bokningsportal`;
   const summary = `Bokning: ${booking.serviceName}`;
-  const description = `Lägenhet ${booking.apartmentId}`;
+  const description = buildBookingIcsDescription(booking);
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -303,6 +319,25 @@ const getTimeSlotWindowConfig = (bookingObject: any) => {
     startMinutes: getMinutesFromClockTime(startTime),
     endMinutes: getMinutesFromClockTime(endTime),
   };
+};
+
+const getPriceCentsForWeekday = (bookingObject: any, utcDayIndex: number) => {
+  const weekdayMap = [
+    "price_sunday_cents",
+    "price_monday_cents",
+    "price_tuesday_cents",
+    "price_wednesday_cents",
+    "price_thursday_cents",
+    "price_friday_cents",
+    "price_saturday_cents",
+  ] as const;
+  const mappedColumn = weekdayMap[utcDayIndex] || "price_monday_cents";
+  const mappedValue = Number(bookingObject?.[mappedColumn]);
+  if (Number.isFinite(mappedValue)) {
+    return mappedValue;
+  }
+  const isWeekend = utcDayIndex === 0 || utcDayIndex === 6;
+  return Number(isWeekend ? bookingObject?.price_weekend_cents || 0 : bookingObject?.price_weekday_cents || 0);
 };
 
 const validateAdminBookingObjectBody = (body: any): string | null => {
@@ -1296,8 +1331,16 @@ const buildServicesForAuth = async (db: D1Database, auth: { user: any; tenant: a
           ? formatDateTimeMinutes(nextAvailableStart)
           : formatDate(nextAvailableStart),
       next_available_start: nextAvailableStart.toISOString(),
+      booking_confirmation_message: obj.booking_confirmation_message || "",
       price_weekday_cents: obj.price_weekday_cents,
       price_weekend_cents: obj.price_weekend_cents,
+      price_monday_cents: getPriceCentsForWeekday(obj, 1),
+      price_tuesday_cents: getPriceCentsForWeekday(obj, 2),
+      price_wednesday_cents: getPriceCentsForWeekday(obj, 3),
+      price_thursday_cents: getPriceCentsForWeekday(obj, 4),
+      price_friday_cents: getPriceCentsForWeekday(obj, 5),
+      price_saturday_cents: getPriceCentsForWeekday(obj, 6),
+      price_sunday_cents: getPriceCentsForWeekday(obj, 0),
       group_id: obj.group_id || null,
       max_bookings_limit: maxBookings.limit,
       max_bookings_scope: maxBookings.scope,
@@ -1309,7 +1352,8 @@ const buildServicesForAuth = async (db: D1Database, auth: { user: any; tenant: a
 const getCurrentBookingsForUser = async (db: D1Database, userId: string) => {
   const rows = await db
     .prepare(
-      `SELECT b.id, b.start_time, b.end_time, b.booking_object_id, bo.group_id AS booking_group_id, bo.name AS booking_object_name
+      `SELECT b.id, b.start_time, b.end_time, b.booking_object_id, bo.group_id AS booking_group_id, bo.name AS booking_object_name,
+              bo.booking_confirmation_message AS booking_confirmation_message
        FROM bookings b
        JOIN booking_objects bo ON bo.id = b.booking_object_id
        WHERE b.user_id = ? AND b.cancelled_at IS NULL
@@ -1321,6 +1365,7 @@ const getCurrentBookingsForUser = async (db: D1Database, userId: string) => {
   return rows.results.map((row: any) => ({
     id: row.id,
     service_name: row.booking_object_name,
+    booking_confirmation_message: row.booking_confirmation_message || "",
     booking_object_id: row.booking_object_id,
     booking_group_id: row.booking_group_id,
     date: (row.start_time as string).slice(0, 10),
@@ -1494,8 +1539,7 @@ const buildWeekAvailability = async (db: D1Database, user: any, bookingObjectId:
       if (endMs <= nowMs) {
         status = "disabled";
       }
-      const isWeekend = [0, 6].includes(start.getUTCDay());
-      const price = isWeekend ? (bookingObject.price_weekend_cents as number) : (bookingObject.price_weekday_cents as number);
+      const price = getPriceCentsForWeekday(bookingObject, start.getUTCDay());
       slots.push({
         id: `${dateString}-${minuteOffset}`,
         label: `${start.toISOString().slice(11, 16)}-${end.toISOString().slice(11, 16)}`,
@@ -2315,8 +2359,7 @@ const handleCreateBooking = async (request: Request, env: Env) => {
   if (start < minDate || start > maxDate) {
     return errorResponse(409, "outside_booking_window");
   }
-  const isWeekend = [0, 6].includes(start.getUTCDay());
-  const priceCents = isWeekend ? (bookingObject.price_weekend_cents as number) : (bookingObject.price_weekday_cents as number);
+  const priceCents = getPriceCentsForWeekday(bookingObject, start.getUTCDay());
   if (isBlockRequest) {
     const blockId = crypto.randomUUID();
     await env.DB
@@ -2389,6 +2432,7 @@ const handleCalendarDownload = async (request: Request, env: Env, url: URL) => {
          b.tenant_id,
          t.last_changed_at AS tenant_last_changed_at,
          bo.name AS booking_object_name,
+         bo.booking_confirmation_message AS booking_confirmation_message,
          u.apartment_id AS booked_user_apartment_id
        FROM bookings b
        JOIN tenants t ON t.id = b.tenant_id
@@ -2407,6 +2451,7 @@ const handleCalendarDownload = async (request: Request, env: Env, url: URL) => {
     endTime: booking.end_time as string,
     serviceName: booking.booking_object_name as string,
     apartmentId: booking.booked_user_apartment_id as string,
+    bookingConfirmationMessage: booking.booking_confirmation_message as string,
   });
   if (!ics) {
     return errorResponse(500, "calendar_generation_failed");
@@ -2818,9 +2863,11 @@ const handleAdminCreateBookingObject = async (request: Request, env: Env) => {
     `INSERT INTO booking_objects (
       id, tenant_id, name, description, booking_type, slot_duration_minutes, full_day_start_time, full_day_end_time,
       time_slot_start_time, time_slot_end_time,
-      window_min_days, window_max_days, price_weekday_cents, price_weekend_cents,
+      window_min_days, window_max_days, booking_confirmation_message, price_weekday_cents, price_weekend_cents,
+      price_monday_cents, price_tuesday_cents, price_wednesday_cents, price_thursday_cents,
+      price_friday_cents, price_saturday_cents, price_sunday_cents,
       is_active, group_id, max_bookings_override
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id,
     auth.tenant.id,
@@ -2834,8 +2881,16 @@ const handleAdminCreateBookingObject = async (request: Request, env: Env) => {
     normalizeClockTime(body.time_slot_end_time, "20:00"),
     body.window_min_days || 0,
     body.window_max_days || 30,
+    String(body.booking_confirmation_message || "").trim() || null,
     body.price_weekday_cents || 0,
     body.price_weekend_cents || 0,
+    body.price_monday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_tuesday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_wednesday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_thursday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_friday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_saturday_cents ?? body.price_weekend_cents ?? 0,
+    body.price_sunday_cents ?? body.price_weekend_cents ?? 0,
     body.is_active ? 1 : 0,
     body.group_id || null,
     maxBookingsOverride
@@ -2858,7 +2913,9 @@ const handleAdminUpdateBookingObject = async (request: Request, env: Env, object
     `UPDATE booking_objects SET
       name = ?, description = ?, booking_type = ?, slot_duration_minutes = ?, full_day_start_time = ?, full_day_end_time = ?,
       time_slot_start_time = ?, time_slot_end_time = ?,
-      window_min_days = ?, window_max_days = ?, price_weekday_cents = ?, price_weekend_cents = ?,
+      window_min_days = ?, window_max_days = ?, booking_confirmation_message = ?, price_weekday_cents = ?, price_weekend_cents = ?,
+      price_monday_cents = ?, price_tuesday_cents = ?, price_wednesday_cents = ?, price_thursday_cents = ?,
+      price_friday_cents = ?, price_saturday_cents = ?, price_sunday_cents = ?,
       is_active = ?, group_id = ?, max_bookings_override = ?
      WHERE id = ?`
   ).bind(
@@ -2872,8 +2929,16 @@ const handleAdminUpdateBookingObject = async (request: Request, env: Env, object
     normalizeClockTime(body.time_slot_end_time, "20:00"),
     body.window_min_days || 0,
     body.window_max_days || 30,
+    String(body.booking_confirmation_message || "").trim() || null,
     body.price_weekday_cents || 0,
     body.price_weekend_cents || 0,
+    body.price_monday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_tuesday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_wednesday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_thursday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_friday_cents ?? body.price_weekday_cents ?? 0,
+    body.price_saturday_cents ?? body.price_weekend_cents ?? 0,
+    body.price_sunday_cents ?? body.price_weekend_cents ?? 0,
     body.is_active ? 1 : 0,
     body.group_id || null,
     maxBookingsOverride,

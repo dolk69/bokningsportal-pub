@@ -18,11 +18,13 @@ INSERT OR IGNORE INTO booking_objects (
   id, tenant_id, name, description, booking_type, slot_duration_minutes,
   time_slot_start_time, time_slot_end_time,
   window_min_days, window_max_days, price_weekday_cents, price_weekend_cents,
+  price_monday_cents, price_tuesday_cents, price_wednesday_cents, price_thursday_cents,
+  price_friday_cents, price_saturday_cents, price_sunday_cents,
   is_active, group_id
 ) VALUES
-  ("obj-laundry", "demo-brf", "Tvättstuga", "Tvätt & tork", "time-slot", 120, "08:00", "20:00", 0, 30, 5000, 7500, 1, "group-standard"),
-  ("obj-guest", "demo-brf", "Gästlägenhet", "Heldagsbokning", "full-day", NULL, "08:00", "20:00", 3, 90, 35000, 35000, 1, "group-standard"),
-  ("obj-sauna", "demo-brf", "Bastu", "Kvällspass", "time-slot", 90, "08:00", "22:00", 0, 14, 0, 0, 1, "group-standard");
+  ("obj-laundry", "demo-brf", "Tvättstuga", "Tvätt & tork", "time-slot", 120, "08:00", "20:00", 0, 30, 5000, 7500, 5000, 5000, 5000, 5000, 5000, 7500, 7500, 1, "group-standard"),
+  ("obj-guest", "demo-brf", "Gästlägenhet", "Heldagsbokning", "full-day", NULL, "08:00", "20:00", 3, 90, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 1, "group-standard"),
+  ("obj-sauna", "demo-brf", "Bastu", "Kvällspass", "time-slot", 90, "08:00", "22:00", 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, "group-standard");
 
 INSERT OR IGNORE INTO access_tokens (token, tenant_id, user_id, created_at, source)
 VALUES
