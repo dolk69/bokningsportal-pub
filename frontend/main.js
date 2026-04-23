@@ -2859,7 +2859,7 @@ const loadWeekAvailability = async (service, weekStart) => {
       if (statusPatchedDay.status === "outside") {
         return statusPatchedDay;
       }
-      const priceCents = getServicePriceForDate(state.selectedService, statusPatchedDay.date) * 100;
+      const priceCents = getServicePriceForDate(state.selectedService, statusPatchedDay.date);
       return {
         ...statusPatchedDay,
         bookedByApartmentId: isAdminUser ? statusPatchedDay.bookedByApartmentId || null : null,

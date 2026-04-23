@@ -16,6 +16,16 @@ export const attachHidRfidListener = (win, { onUid }) => {
   let buffer = "";
   let lastTs = 0;
 
+  const emitUid = (value) => {
+    const normalized = String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
+    if (normalized) {
+      onUid(normalized);
+    }
+  };
+
   const onKeyDown = (e) => {
     const target = e.target;
     if (
@@ -34,12 +44,17 @@ export const attachHidRfidListener = (win, { onUid }) => {
     }
     lastTs = now;
 
+    // Låt tangentkombinationer som Ctrl+V passera till browsern/paste-handlern.
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      return;
+    }
+
     if (e.key === "Enter") {
       const uid = buffer.trim();
       buffer = "";
       if (uid) {
         e.preventDefault();
-        onUid(uid);
+        emitUid(uid);
       }
       return;
     }
@@ -52,8 +67,32 @@ export const attachHidRfidListener = (win, { onUid }) => {
     }
   };
 
+  const onPaste = (e) => {
+    const target = e.target;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    const pasted = e.clipboardData?.getData("text") || "";
+    if (!pasted.trim()) {
+      return;
+    }
+    e.preventDefault();
+    buffer = "";
+    emitUid(pasted);
+  };
+
   win.addEventListener("keydown", onKeyDown, true);
-  return () => win.removeEventListener("keydown", onKeyDown, true);
+  win.addEventListener("paste", onPaste, true);
+  return () => {
+    win.removeEventListener("keydown", onKeyDown, true);
+    win.removeEventListener("paste", onPaste, true);
+  };
 };
 
 /**
