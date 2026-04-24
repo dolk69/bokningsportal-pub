@@ -229,7 +229,7 @@ export const ServiceSelection = ({
                 : null,
               createElement("div", {
                 className: "screen-subtitle",
-                text: "QR-koden visas bara en gång. Spara den, t.ex. som bokmärke i telefonen.",
+                text: "Läs av QR-koden med mobiltelefonens kamera och spara länken som bokmärke.",
               }),
               createElement("div", {
                 className: "modal-footer",
