@@ -1349,7 +1349,12 @@ const buildServicesForAuth = async (db: D1Database, auth: { user: any; tenant: a
     });
 };
 
-const getCurrentBookingsForUser = async (db: D1Database, userId: string) => {
+const getCurrentBookingsForUser = async (
+  db: D1Database,
+  userId: string,
+  tenantId: string,
+  isAdmin: boolean
+) => {
   const rows = await db
     .prepare(
       `SELECT b.id, b.start_time, b.end_time, b.booking_object_id, bo.group_id AS booking_group_id, bo.name AS booking_object_name,
@@ -1362,7 +1367,7 @@ const getCurrentBookingsForUser = async (db: D1Database, userId: string) => {
     )
     .bind(userId)
     .all();
-  return rows.results.map((row: any) => ({
+  const bookingRows = rows.results.map((row: any) => ({
     id: row.id,
     service_name: row.booking_object_name,
     booking_confirmation_message: row.booking_confirmation_message || "",
@@ -1372,6 +1377,31 @@ const getCurrentBookingsForUser = async (db: D1Database, userId: string) => {
     time_label: row.end_time ? `${row.start_time.slice(11, 16)}-${row.end_time.slice(11, 16)}` : "Heldag",
     status: "mine",
   }));
+  if (!isAdmin) {
+    return bookingRows;
+  }
+  const blockRows = await db
+    .prepare(
+      `SELECT bb.id, bb.start_time, bb.end_time, bb.booking_object_id, bo.group_id AS booking_group_id, bo.name AS booking_object_name
+       FROM booking_blocks bb
+       JOIN booking_objects bo ON bo.id = bb.booking_object_id
+       WHERE bb.tenant_id = ?
+         AND datetime(bb.end_time) > datetime('now')
+       ORDER BY bb.start_time ASC`
+    )
+    .bind(tenantId)
+    .all();
+  const blockedRows = blockRows.results.map((row: any) => ({
+    id: row.id,
+    service_name: row.booking_object_name,
+    booking_confirmation_message: "",
+    booking_object_id: row.booking_object_id,
+    booking_group_id: row.booking_group_id,
+    date: (row.start_time as string).slice(0, 10),
+    time_label: row.end_time ? `${row.start_time.slice(11, 16)}-${row.end_time.slice(11, 16)}` : "Heldag",
+    status: "blocked",
+  }));
+  return [...bookingRows, ...blockedRows].sort((a, b) => a.date.localeCompare(b.date) || a.time_label.localeCompare(b.time_label));
 };
 
 const listBookableUsersForTenant = async (db: D1Database, tenantId: string) => {
@@ -2226,7 +2256,7 @@ const handleServices = async (request: Request, env: Env) => {
 const handleCurrentBookings = async (request: Request, env: Env) => {
   const auth = await requireAuth(request, env);
   if ("error" in auth) return auth.error;
-  const bookings = await getCurrentBookingsForUser(env.DB, auth.user.id);
+  const bookings = await getCurrentBookingsForUser(env.DB, auth.user.id, auth.tenant.id, auth.user.is_admin === 1);
   return withTenantConditionalJson(request, auth.tenant, { bookings });
 };
 
@@ -2238,7 +2268,7 @@ const handleBootstrap = async (request: Request, env: Env) => {
   }
   const [services, bookings] = await Promise.all([
     buildServicesForAuth(env.DB, auth, env),
-    getCurrentBookingsForUser(env.DB, auth.user.id),
+    getCurrentBookingsForUser(env.DB, auth.user.id, auth.tenant.id, auth.user.is_admin === 1),
   ]);
   return withTenantConditionalJson(request, auth.tenant, {
     tenant: { id: auth.tenant.id, name: auth.tenant.name },
@@ -2298,8 +2328,7 @@ const handleCreateBooking = async (request: Request, env: Env) => {
     }
     effectiveUserId = String(targetUser.id);
   }
-  const bypassMaxBookingsLimit =
-    isBlockRequest || (auth.user.is_admin === 1 && !isBlockRequest && Boolean(bookingForUserId));
+  const bypassMaxBookingsLimit = isBlockRequest || auth.user.is_admin === 1;
   const nowIso = new Date().toISOString();
   const bookingObjectGroupId = String(bookingObject.group_id || "").trim();
   const groupLimitsById = bookingObjectGroupId

@@ -2622,6 +2622,20 @@ const refreshPersonalQrLink = async () => {
   }
 };
 
+const showExistingPersonalQrLink = () => {
+  const token = routePath.split("/")[2];
+  if (!token) {
+    return;
+  }
+  const loginUrl = `${window.location.origin}/user/${token}`;
+  store.setState({
+    qrModalOpen: true,
+    qrUrl: loginUrl,
+    qrImageUrl: buildQrImageUrl(loginUrl, 320),
+    qrError: "",
+  });
+};
+
 const loadMonthAvailability = async (service, year, monthIndex) => {
   const key = `${service.id}-${year}-${monthIndex}`;
   store.setState((prev) => ({
@@ -2778,6 +2792,33 @@ const loadWeekAvailability = async (service, weekStart) => {
       cancelBooking: state.cancelBooking,
       bookingCalendarModalOpen: state.bookingCalendarModalOpen,
       selectedOverviewBooking: state.selectedOverviewBooking,
+      onOverviewBookingClick: (booking) => {
+        if (!booking) {
+          return;
+        }
+        if (booking.status === "blocked" && state.sessionUser?.is_admin) {
+          const sourceDate = booking.startTime ? new Date(booking.startTime) : new Date();
+          store.setState({
+            cancelModalOpen: true,
+            cancelBooking: buildCancelBooking({
+              date: sourceDate,
+              timeLabel: booking.timeLabel || "",
+              serviceName: booking.serviceName || "",
+              bookingMessage: booking.bookingMessage || "",
+              sourceId: booking.id,
+              bookingId: booking.id,
+              cancelType: "block",
+            }),
+          });
+          return;
+        }
+        if (booking.status === "mine") {
+          store.setState({
+            bookingCalendarModalOpen: true,
+            selectedOverviewBooking: booking,
+          });
+        }
+      },
       onOpenBookingCalendar: (booking) =>
         store.setState({
           bookingCalendarModalOpen: true,
@@ -2788,13 +2829,19 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
         }),
-      onCancelFromBookingCalendar: () => {
+      onCancelFromBookingCalendar: async () => {
         const selectedBooking = store.getState().selectedOverviewBooking;
+        const bookingId = selectedBooking?.bookingId || selectedBooking?.id || null;
+        if (bookingId) {
+          await cancelBooking(bookingId);
+        }
+        const bookingsData = await getCurrentBookings();
         store.setState({
+          bookings: bookingsData.filter(isBookingCurrentOrFuture),
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
-          cancelModalOpen: true,
-          cancelBooking: selectedBooking || null,
+          cancelModalOpen: false,
+          cancelBooking: null,
         });
       },
       onCloseCancel: () => store.setState({ cancelModalOpen: false, cancelBooking: null }),
@@ -2818,6 +2865,8 @@ const loadWeekAvailability = async (service, weekStart) => {
       qrUrl: state.qrUrl,
       qrImageUrl: state.qrImageUrl,
       qrModalOpen: state.qrModalOpen,
+      hasExistingQr: Boolean(routePath.split("/")[2]),
+      onShowExistingQr: showExistingPersonalQrLink,
       onOpenQrWarning: () => store.setState({ qrWarningOpen: true, qrError: "" }),
       onCloseQrWarning: () => store.setState({ qrWarningOpen: false, qrError: "" }),
       onConfirmQr: refreshPersonalQrLink,
@@ -2944,14 +2993,22 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
         }),
-      onCancelFromBookingCalendar: () => {
+      onCancelFromBookingCalendar: async () => {
         const selectedBooking = store.getState().selectedOverviewBooking;
+        const bookingId = selectedBooking?.bookingId || selectedBooking?.id || findBookingId(store.getState().bookings, selectedBooking);
+        if (bookingId) {
+          await cancelBooking(bookingId);
+        }
+        const bookingsData = await getCurrentBookings();
         store.setState({
+          cancelledDayIds: [...store.getState().cancelledDayIds, selectedBooking?.id].filter(Boolean),
+          bookings: bookingsData.filter(isBookingCurrentOrFuture),
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
-          cancelModalOpen: true,
-          cancelBooking: selectedBooking || null,
+          cancelModalOpen: false,
+          cancelBooking: null,
         });
+        loadMonthAvailability(state.selectedService, year, monthIndex);
       },
       onConfirmCancel: async () => {
         const target = store.getState().cancelBooking;
@@ -3087,14 +3144,22 @@ const loadWeekAvailability = async (service, weekStart) => {
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
         }),
-      onCancelFromBookingCalendar: () => {
+      onCancelFromBookingCalendar: async () => {
         const selectedBooking = store.getState().selectedOverviewBooking;
+        const bookingId = selectedBooking?.bookingId || selectedBooking?.id || findBookingId(store.getState().bookings, selectedBooking);
+        if (bookingId) {
+          await cancelBooking(bookingId);
+        }
+        const bookingsData = await getCurrentBookings();
         store.setState({
+          cancelledSlotIds: [...store.getState().cancelledSlotIds, selectedBooking?.id].filter(Boolean),
+          bookings: bookingsData.filter(isBookingCurrentOrFuture),
           bookingCalendarModalOpen: false,
           selectedOverviewBooking: null,
-          cancelModalOpen: true,
-          cancelBooking: selectedBooking || null,
+          cancelModalOpen: false,
+          cancelBooking: null,
         });
+        loadWeekAvailability(state.selectedService, state.weekCursor);
       },
       onConfirmCancel: async () => {
         const target = store.getState().cancelBooking;
@@ -3124,7 +3189,7 @@ const loadWeekAvailability = async (service, weekStart) => {
     const maxBookingsReached = isSelectedServiceMaxReached(state);
     const isAdminUser = Boolean(state.sessionUser?.is_admin);
     const adminAction = state.adminBookingAction || "self";
-    const enforceClientMaxBookings = !(isAdminUser && (adminAction === "other" || adminAction === "block"));
+    const enforceClientMaxBookings = !isAdminUser;
     const maxBookingsBlockedByClient = maxBookingsReached && enforceClientMaxBookings;
     const requiresTargetUser = isAdminUser && adminAction === "other";
     const adminTargetMissing = requiresTargetUser && !state.adminBookingForUserId;

@@ -27,6 +27,7 @@ export const ServiceSelection = ({
   bookingCalendarModalOpen,
   selectedOverviewBooking,
   onOpenBookingCalendar,
+  onOverviewBookingClick,
   onCloseBookingCalendar,
   onCancelFromBookingCalendar,
   qrWarningOpen,
@@ -35,6 +36,8 @@ export const ServiceSelection = ({
   qrUrl,
   qrImageUrl,
   qrModalOpen,
+  hasExistingQr,
+  onShowExistingQr,
   onOpenQrWarning,
   onCloseQrWarning,
   onConfirmQr,
@@ -65,16 +68,19 @@ export const ServiceSelection = ({
   }
 
   const bookingsSection = createElement("div", {
-    className: "bookings-section",
+    className: "bookings-section overview-section",
     children: [
-      createElement("div", { className: "section-title", text: "Dina bokningar" }),
+      createElement("div", { className: "section-title", text: "Mina bokningar" }),
       bookings?.length
         ? createElement("div", {
             className: "bookings-grid",
             children: bookings.map((booking) =>
               createElement("div", {
-                className: `booking-card ${booking.status} ${booking.status === "mine" ? "clickable" : ""}`.trim(),
-                onClick: booking.status === "mine" ? () => onOpenBookingCalendar(booking) : null,
+                className: `booking-card ${booking.status} ${booking.status === "mine" || booking.status === "blocked" ? "clickable" : ""}`.trim(),
+                onClick:
+                  booking.status === "mine" || booking.status === "blocked"
+                    ? () => onOverviewBookingClick(booking)
+                    : null,
                 children: [
                   createElement("div", { className: "booking-card-title", text: booking.serviceName }),
                   createElement("div", {
@@ -94,32 +100,46 @@ export const ServiceSelection = ({
               })
             ),
           })
-        : createElement("div", { className: "empty-state", text: "Inga aktiva bokningar." }),
-      createElement("div", {
-        className: "qr-section",
-        children: [
-          createElement("div", { className: "section-title", text: "Boka med mobilen" }),
-          isKioskMode || !isMobile
-            ? createElement("div", {
-                className: "qr-card card",
+        : createElement("div", { className: "overview-empty-state", text: "Inga aktiva bokningar." }),
+    ],
+  });
+
+  const qrSection = createElement("div", {
+    className: "qr-section overview-section",
+    children: [
+      createElement("div", { className: "section-title", text: "Logga in med mobil" }),
+      isKioskMode || !isMobile
+        ? createElement("div", {
+            className: "qr-content",
+            children: [
+              createElement("div", {
+                className: "qr-description",
+                text:
+                  "För att boka tider med mobilen behöver du en personlig länk för att logga in. Om du inte har en kan du klicka på knappen intill för att generera en QR kod. Denna QR kod ger dig en personlig bokningslänk - dela den bara med andra i ditt hushåll som skall kunna boka. Du kan visa din personliga inloggningslänk genom att klicka på knappen intill.<br><br>Om du är nyinflyttad är det lämpligt att generera en ny QR-kod så att tidigare boende inte kan boka i ditt namn.",
+              }),
+              createElement("div", {
+                className: "qr-actions",
                 children: [
-                  createElement("div", {
-                    className: "qr-description",
-                    text:
-                      "För att boka tider med mobilen behöver du en personlig länk för att logga in. Om du inte har en kan du klicka på knappen intill för att generera en QR kod. Denna QR kod ger dig en personlig bokningslänk - dela den bara med andra i ditt hushåll som skall kunna boka. Om du inte har kvar din personliga länk kan du generera en ny med knappen intill.",
+                  createElement("button", {
+                    className: "secondary-button",
+                    text: "Visa befintlig QR-kod",
+                    attrs: {
+                      disabled: !hasExistingQr || qrGenerating ? "disabled" : null,
+                    },
+                    onClick: onShowExistingQr,
                   }),
                   createElement("button", {
                     className: "primary-button",
-                    text: qrGenerating ? "Genererar..." : "Generera QR kod",
+                    text: qrGenerating ? "Genererar..." : "Generera ny QR-kod",
                     attrs: { disabled: qrGenerating ? "disabled" : null },
                     onClick: onOpenQrWarning,
                   }),
                 ],
-              })
-            : null,
-        ].filter(Boolean),
-      }),
-    ],
+              }),
+            ],
+          })
+        : null,
+    ].filter(Boolean),
   });
 
   const warningModal = qrWarningOpen
@@ -229,6 +249,18 @@ export const ServiceSelection = ({
 
   return createElement("section", {
     className: "screen",
-    children: [header, content, bookingsSection, warningModal, cancelModal, bookingCalendarModal, qrModal].filter(Boolean),
+    children: [
+      header,
+      createElement("div", {
+        className: "overview-section",
+        children: [createElement("div", { className: "section-title", text: "Bokningsobjekt" }), content],
+      }),
+      bookingsSection,
+      qrSection,
+      warningModal,
+      cancelModal,
+      bookingCalendarModal,
+      qrModal,
+    ].filter(Boolean),
   });
 };
