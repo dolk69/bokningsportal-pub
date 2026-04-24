@@ -275,7 +275,6 @@ export const ImportUsersModal = ({
               createElement("div", { className: "modal-title", text: "Välj admin‑grupper" }),
               createElement("div", {
                 className: "selector-list",
-                onScroll: (event) => onChange("adminSelectorScrollTop", event.target.scrollTop),
                 children: (form.adminGroupOptions || []).map((group) =>
                   createElement("label", {
                     className: "selector-option",
