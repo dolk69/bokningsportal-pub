@@ -3,6 +3,7 @@
 
 import { createElement } from "../hooks/dom.js";
 import { BookingSummary } from "../components/BookingSummary.js";
+import { calendarPlusIcon } from "../utils/icons.js";
 
 const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl, bookingMessage }) => {
   if (!calendarDownloadUrl) {
@@ -46,9 +47,13 @@ const calendarAction = ({ isKioskMode, calendarQrImageUrl, calendarDownloadUrl, 
       createElement("div", {
         className: "calendar-download-actions",
         children: [
+          createElement("div", {
+            className: "calendar-download-help",
+            text: "Tryck på kalenderikonen för att lägga till en kalendernotis i mobilen.",
+          }),
           createElement("a", {
             className: "calendar-inline-link",
-            text: "📆",
+            children: [calendarPlusIcon()],
             attrs: {
               href: calendarDownloadUrl,
               title: "Ladda ner kalenderfil",

@@ -108,7 +108,7 @@ export const ServiceSelection = ({
     className: "qr-section overview-section",
     children: [
       createElement("div", { className: "section-title", text: "Logga in med mobil" }),
-      isKioskMode || !isMobile
+      !isKioskMode
         ? createElement("div", {
             className: "qr-content",
             children: [
@@ -203,6 +203,7 @@ export const ServiceSelection = ({
     isOpen: bookingCalendarModalOpen,
     booking: selectedOverviewBooking,
     isKioskMode,
+    isMobile,
     onClose: onCloseBookingCalendar,
     onCancel: onCancelFromBookingCalendar,
   });

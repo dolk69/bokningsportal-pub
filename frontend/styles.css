@@ -879,6 +879,59 @@ body {
   white-space: nowrap;
 }
 
+.secondary-button.calendar-nav-icon {
+  min-width: auto;
+  width: auto;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  border-color: #0b1730;
+  box-shadow: 0 2px 8px rgba(16, 28, 51, 0.14);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.secondary-button.calendar-nav-icon svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.icon-button {
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 232, 245, 0.5);
+  background: transparent;
+  color: #d7f7ff;
+  font-size: 20px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-icon-button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.logout-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-topbar-spacer {
+  width: 40px;
+  height: 40px;
+}
+
 .ghost-button,
 .primary-button,
 .secondary-button {
@@ -1605,6 +1658,19 @@ body {
   cursor: pointer;
 }
 
+.calendar-inline-link svg {
+  width: 112px;
+  height: 112px;
+  pointer-events: none;
+}
+
+.calendar-download-help {
+  font-size: 15px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
 .calendar-inline-link:hover {
   color: var(--primary-dark);
   transform: translateY(-1px);
@@ -1933,6 +1999,75 @@ body {
   .header {
     padding: 14px 16px;
     gap: clamp(8px, 2vw, 16px);
+  }
+
+  .header.mobile-topbar {
+    position: relative;
+    margin: -20px -16px 4px;
+    width: calc(100% + 32px);
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    padding: 12px 16px 14px 16px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .mobile-topbar-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #d7f7ff;
+    line-height: 1.2;
+    padding-right: 84px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-topbar-actions {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .mobile-topbar-identity {
+    font-size: 14px;
+    color: #e87722;
+    font-weight: 600;
+    padding-right: 84px;
+  }
+
+  .calendar-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .calendar-title {
+    font-size: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .secondary-button.calendar-nav-icon {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    font-size: 18px;
+    gap: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .secondary-button.calendar-nav-icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .header-actions {

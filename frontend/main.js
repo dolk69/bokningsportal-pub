@@ -2753,6 +2753,7 @@ const loadWeekAvailability = async (service, weekStart) => {
         showBack: Boolean(headerBack),
         onBack: headerBack || undefined,
         onLogout: logout,
+        isMobile,
       })
     );
 
@@ -2916,13 +2917,17 @@ const loadWeekAvailability = async (service, weekStart) => {
         priceText: priceCents > 0 ? `${Math.round(priceCents / 100)} kr` : "",
       };
     });
-    const visibleDays = isMobile ? days.filter((day) => day.status !== "disabled") : days;
+    const visibleDays = isMobile
+      ? days.filter((day) => day.status !== "disabled" && day.status !== "outside")
+      : days;
+    const expectedDays = getExpectedMonthDays(year, monthIndex);
+    const visibleExpectedDays = isMobile ? expectedDays.filter((day) => day.status !== "outside") : expectedDays;
 
     screen = DateSelection({
       serviceName: state.selectedService?.name,
       monthLabel: getMonthLabel(year, monthIndex),
       days: visibleDays,
-      expectedDays: getExpectedMonthDays(year, monthIndex),
+      expectedDays: visibleExpectedDays,
       selectedDateId: state.selectedDate?.id,
       onSelect: (day) => {
         if (day.status === "mine") {
@@ -3028,6 +3033,7 @@ const loadWeekAvailability = async (service, weekStart) => {
         loadMonthAvailability(state.selectedService, year, monthIndex);
       },
       isKioskMode: isKioskRoute,
+      isMobile,
       isAdminView: isAdminUser,
     });
 
@@ -3179,6 +3185,7 @@ const loadWeekAvailability = async (service, weekStart) => {
         loadWeekAvailability(state.selectedService, state.weekCursor);
       },
       isKioskMode: isKioskRoute,
+      isMobile,
       isAdminView: isAdminUser,
     });
 

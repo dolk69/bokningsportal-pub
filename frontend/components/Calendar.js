@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { createElement } from "../hooks/dom.js";
+import { angleLeftIcon, angleRightIcon } from "../utils/icons.js";
 
 const weekDays = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
@@ -15,6 +16,7 @@ export const Calendar = ({
   canNext,
   onSelect,
   isLoading = false,
+  isMobile = false,
   isAdminView = false,
   bookingHeading = null,
 }) => {
@@ -22,17 +24,21 @@ export const Calendar = ({
     className: "calendar-header",
     children: [
       createElement("button", {
-        className: "secondary-button",
-        text: "‹ Föregående",
+        className: "secondary-button calendar-nav-icon",
+        children: isMobile
+          ? [angleLeftIcon()]
+          : [angleLeftIcon(), createElement("span", { text: "Föregående" })],
         onClick: onPrev,
-        attrs: { disabled: !canPrev || isLoading },
+        attrs: { disabled: !canPrev || isLoading, "aria-label": "Föregående månad" },
       }),
       createElement("div", { className: "calendar-title", text: monthLabel }),
       createElement("button", {
-        className: "secondary-button",
-        text: "Nästa ›",
+        className: "secondary-button calendar-nav-icon",
+        children: isMobile
+          ? [angleRightIcon()]
+          : [createElement("span", { text: "Nästa" }), angleRightIcon()],
         onClick: onNext,
-        attrs: { disabled: !canNext || isLoading },
+        attrs: { disabled: !canNext || isLoading, "aria-label": "Nästa månad" },
       }),
     ],
   });

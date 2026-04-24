@@ -4,8 +4,9 @@
 import { createElement } from "../hooks/dom.js";
 import { BookingSummary } from "./BookingSummary.js";
 import { buildCalendarDownloadPageUrl, buildCalendarQrImageUrl } from "../utils/calendarExport.js";
+import { calendarPlusIcon } from "../utils/icons.js";
 
-export const BookingCalendarModal = ({ isOpen, booking, isKioskMode, onClose, onCancel }) => {
+export const BookingCalendarModal = ({ isOpen, booking, isKioskMode, isMobile = false, onClose, onCancel }) => {
   if (!isOpen) {
     return null;
   }
@@ -32,7 +33,7 @@ export const BookingCalendarModal = ({ isOpen, booking, isKioskMode, onClose, on
         children: [
           createElement("div", { className: "modal-title", text: "Kalenderbokning" }),
           summary ? BookingSummary({ summary }) : null,
-          calendarQrImageUrl
+          !isMobile && calendarQrImageUrl
             ? createElement("img", {
                 className: "confirmation-qr-image",
                 attrs: {
@@ -41,16 +42,37 @@ export const BookingCalendarModal = ({ isOpen, booking, isKioskMode, onClose, on
                 },
               })
             : null,
-          calendarUrl && !isKioskMode
-            ? createElement("a", {
-                className: "booking-download-link",
-                text: "Öppna kalenderlänk",
-                attrs: {
-                  href: calendarUrl,
-                  target: "_blank",
-                  rel: "noopener noreferrer",
-                },
+          calendarUrl && !isKioskMode && isMobile
+            ? createElement("div", {
+                className: "booking-calendar-action confirmation-calendar-action",
+                children: [
+                  createElement("div", {
+                    className: "calendar-download-help",
+                    text: "Tryck på kalenderikonen för att lägga till en kalendernotis i mobilen.",
+                  }),
+                  createElement("a", {
+                    className: "calendar-inline-link",
+                    children: [calendarPlusIcon()],
+                    attrs: {
+                      href: calendarUrl,
+                      title: "Ladda ner kalenderfil",
+                      "aria-label": "Ladda ner kalenderfil",
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                    },
+                  }),
+                ],
               })
+            : calendarUrl && !isKioskMode
+              ? createElement("a", {
+                  className: "booking-download-link",
+                  text: "Öppna kalenderlänk",
+                  attrs: {
+                    href: calendarUrl,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                  },
+                })
             : null,
           createElement("div", {
             className: "modal-footer",

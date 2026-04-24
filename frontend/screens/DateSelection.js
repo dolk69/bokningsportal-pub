@@ -48,6 +48,7 @@ export const DateSelection = ({
   onCloseBookingCalendar,
   onCancelFromBookingCalendar,
   isKioskMode = false,
+  isMobile = false,
   isAdminView = false,
 }) => {
   const headingText = serviceName?.trim()
@@ -70,6 +71,7 @@ export const DateSelection = ({
       canPrev,
       canNext,
       isLoading: true,
+      isMobile,
       isAdminView,
       bookingHeading: heading,
     });
@@ -84,6 +86,7 @@ export const DateSelection = ({
       canPrev,
       canNext,
       isLoading: true,
+      isMobile,
       isAdminView,
       bookingHeading: heading,
     });
@@ -99,6 +102,7 @@ export const DateSelection = ({
           onNext,
           canPrev,
           canNext,
+          isMobile,
           isAdminView,
           bookingHeading: heading,
         }),
@@ -117,6 +121,7 @@ export const DateSelection = ({
           onNext,
           canPrev,
           canNext,
+          isMobile,
           isAdminView,
           bookingHeading: heading,
         }),
@@ -133,6 +138,7 @@ export const DateSelection = ({
       onNext,
       canPrev,
       canNext,
+      isMobile,
       isAdminView,
       bookingHeading: heading,
     });
@@ -150,6 +156,7 @@ export const DateSelection = ({
     isOpen: bookingCalendarModalOpen,
     booking: selectedOverviewBooking,
     isKioskMode,
+    isMobile,
     onClose: onCloseBookingCalendar,
     onCancel: onCancelFromBookingCalendar,
   });

@@ -5,6 +5,7 @@ import { createElement } from "../hooks/dom.js";
 import { TimeslotButton } from "../components/TimeslotButton.js";
 import { CancelBookingModal } from "../components/CancelBookingModal.js";
 import { BookingCalendarModal } from "../components/BookingCalendarModal.js";
+import { angleLeftIcon, angleRightIcon } from "../utils/icons.js";
 
 const legend = () =>
   createElement("div", {
@@ -48,6 +49,7 @@ export const TimeSelection = ({
   onCloseBookingCalendar,
   onCancelFromBookingCalendar,
   isKioskMode = false,
+  isMobile = false,
   isAdminView = false,
 }) => {
   const headingText = serviceName?.trim()
@@ -59,17 +61,21 @@ export const TimeSelection = ({
     className: "calendar-header",
     children: [
       createElement("button", {
-        className: "secondary-button",
-        text: "‹ Föregående",
+        className: "secondary-button calendar-nav-icon",
+        children: isMobile
+          ? [angleLeftIcon()]
+          : [angleLeftIcon(), createElement("span", { text: "Föregående" })],
         onClick: onPrev,
-        attrs: { disabled: !canPrev },
+        attrs: { disabled: !canPrev, "aria-label": "Föregående vecka" },
       }),
       createElement("div", { className: "calendar-title", text: weekLabel }),
       createElement("button", {
-        className: "secondary-button",
-        text: "Nästa ›",
+        className: "secondary-button calendar-nav-icon",
+        children: isMobile
+          ? [angleRightIcon()]
+          : [createElement("span", { text: "Nästa" }), angleRightIcon()],
         onClick: onNext,
-        attrs: { disabled: !canNext },
+        attrs: { disabled: !canNext, "aria-label": "Nästa vecka" },
       }),
     ],
   });
@@ -154,6 +160,7 @@ export const TimeSelection = ({
     isOpen: bookingCalendarModalOpen,
     booking: selectedOverviewBooking,
     isKioskMode,
+    isMobile,
     onClose: onCloseBookingCalendar,
     onCancel: onCancelFromBookingCalendar,
   });
